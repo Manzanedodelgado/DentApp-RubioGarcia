@@ -1261,6 +1261,247 @@ async def sync_appointments():
         logger.error(f"Sync error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
 
+# AI Assistant Routes
+@api_router.post("/ai/voice-assistant", response_model=VoiceAssistantResponse)
+async def voice_assistant(request: VoiceAssistantRequest):
+    """Process voice assistant request with AI"""
+    try:
+        # Get or create session
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Get AI settings
+        ai_settings = await db.ai_settings.find_one({}) or {}
+        
+        # Initialize LLM Chat
+        api_key = os.getenv('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="AI key not configured")
+        
+        # Get clinic settings for context
+        clinic_settings = await db.clinic_settings.find_one({}) or {}
+        
+        # Create system prompt
+        system_prompt = f"""
+        Eres el asistente virtual de {clinic_settings.get('name', 'RUBIO GARCÍA DENTAL')}.
+        
+        Información de la clínica:
+        - Dirección: {clinic_settings.get('address', 'Calle Mayor 19, Alcorcón, 28921 Madrid')}
+        - Teléfono: {clinic_settings.get('phone', '916 410 841')}
+        - WhatsApp: {clinic_settings.get('whatsapp', '664 218 253')}
+        - Email: {clinic_settings.get('email', 'info@rubiogarciadental.com')}
+        - Horarios: {clinic_settings.get('schedule', 'Lun-Jue 10:00-14:00 y 16:00-20:00 | Vie 10:00-14:00')}
+        
+        Puedes ayudar con:
+        - Programar y consultar citas
+        - Enviar recordatorios y mensajes a pacientes
+        - Consultar información de pacientes
+        - Responder preguntas sobre tratamientos y servicios
+        
+        Responde de manera profesional, amigable y útil. Si necesitas realizar alguna acción específica 
+        (como enviar un mensaje o programar una cita), indícalo claramente en tu respuesta.
+        
+        Si el usuario dice comandos como "envía mensaje a [paciente]" o "programa recordatorio", 
+        identifica la acción y los datos necesarios.
+        """
+        
+        # Initialize chat
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=session_id,
+            system_message=system_prompt
+        ).with_model(
+            ai_settings.get('model_provider', 'openai'),
+            ai_settings.get('model_name', 'gpt-4o-mini')
+        )
+        
+        # Create user message
+        user_message = UserMessage(text=request.message)
+        
+        # Get AI response
+        response = await chat.send_message(user_message)
+        
+        # Analyze response for actions
+        action_type = None
+        extracted_data = {}
+        
+        # Simple action detection
+        if any(keyword in request.message.lower() for keyword in ["envía mensaje", "mandar mensaje", "enviar mensaje"]):
+            action_type = "send_message"
+        elif any(keyword in request.message.lower() for keyword in ["programa recordatorio", "recordatorio", "recordar"]):
+            action_type = "schedule_reminder"
+        elif any(keyword in request.message.lower() for keyword in ["agendar cita", "programar cita", "nueva cita"]):
+            action_type = "schedule_appointment"
+        
+        return VoiceAssistantResponse(
+            response=response,
+            session_id=session_id,
+            action_type=action_type,
+            extracted_data=extracted_data
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in voice assistant: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing voice request")
+
+# Settings Routes
+@api_router.get("/settings/clinic")
+async def get_clinic_settings():
+    """Get clinic settings"""
+    try:
+        settings = await db.clinic_settings.find_one({})
+        if not settings:
+            # Create default settings
+            default_settings = ClinicSettings()
+            await db.clinic_settings.insert_one(prepare_for_mongo(default_settings.dict()))
+            return default_settings
+        return ClinicSettings(**parse_from_mongo(settings))
+    except Exception as e:
+        logger.error(f"Error fetching clinic settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching settings")
+
+@api_router.put("/settings/clinic")
+async def update_clinic_settings(settings: ClinicSettings):
+    """Update clinic settings"""
+    try:
+        settings.updated_at = datetime.now(timezone.utc)
+        settings_data = prepare_for_mongo(settings.dict())
+        
+        await db.clinic_settings.replace_one(
+            {},
+            settings_data,
+            upsert=True
+        )
+        
+        return {"message": "Clinic settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating clinic settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating settings")
+
+@api_router.get("/settings/ai")
+async def get_ai_settings():
+    """Get AI settings"""
+    try:
+        settings = await db.ai_settings.find_one({})
+        if not settings:
+            # Create default AI settings
+            default_settings = AISettings()
+            await db.ai_settings.insert_one(prepare_for_mongo(default_settings.dict()))
+            return default_settings
+        return AISettings(**parse_from_mongo(settings))
+    except Exception as e:
+        logger.error(f"Error fetching AI settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching AI settings")
+
+@api_router.put("/settings/ai")
+async def update_ai_settings(settings: AISettings):
+    """Update AI settings"""
+    try:
+        settings.updated_at = datetime.now(timezone.utc)
+        settings_data = prepare_for_mongo(settings.dict())
+        
+        await db.ai_settings.replace_one(
+            {},
+            settings_data,
+            upsert=True
+        )
+        
+        return {"message": "AI settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating AI settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating AI settings")
+
+@api_router.get("/settings/automations")
+async def get_automation_rules():
+    """Get automation rules"""
+    try:
+        rules = await db.automation_rules.find({}).to_list(100)
+        if not rules:
+            # Create default automation rules
+            default_rules = [
+                AutomationRule(
+                    name="Recordatorio de Cita",
+                    description="Enviar recordatorio el día anterior a las 16:00h",
+                    trigger_type="appointment_day_before",
+                    trigger_time="16:00",
+                    template_id="default_reminder",
+                    conditions={"appointment_types": ["all"]}
+                ),
+                AutomationRule(
+                    name="Nueva Cita Registrada",
+                    description="Mensaje automático cuando se registra nueva cita",
+                    trigger_type="new_appointment",
+                    template_id="appointment_confirmation",
+                    conditions={"send_immediately": True}
+                ),
+                AutomationRule(
+                    name="Recordatorio de Cirugía",
+                    description="Enviar consentimiento informado día anterior a cirugía",
+                    trigger_type="surgery_reminder",
+                    trigger_time="10:00",
+                    template_id="surgery_consent",
+                    conditions={"treatment_types": ["implante", "cirugía", "extracción"]}
+                )
+            ]
+            
+            for rule in default_rules:
+                await db.automation_rules.insert_one(prepare_for_mongo(rule.dict()))
+            
+            return [AutomationRule(**parse_from_mongo(prepare_for_mongo(rule.dict()))) for rule in default_rules]
+        
+        return [AutomationRule(**parse_from_mongo(rule)) for rule in rules]
+    except Exception as e:
+        logger.error(f"Error fetching automation rules: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching automation rules")
+
+@api_router.post("/settings/automations")
+async def create_automation_rule(rule: AutomationRule):
+    """Create new automation rule"""
+    try:
+        rule_data = prepare_for_mongo(rule.dict())
+        await db.automation_rules.insert_one(rule_data)
+        return {"message": "Automation rule created successfully", "rule_id": rule.id}
+    except Exception as e:
+        logger.error(f"Error creating automation rule: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating automation rule")
+
+@api_router.put("/settings/automations/{rule_id}")
+async def update_automation_rule(rule_id: str, rule: AutomationRule):
+    """Update automation rule"""
+    try:
+        rule.updated_at = datetime.now(timezone.utc)
+        rule_data = prepare_for_mongo(rule.dict())
+        
+        result = await db.automation_rules.update_one(
+            {"id": rule_id},
+            {"$set": rule_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Automation rule not found")
+        
+        return {"message": "Automation rule updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating automation rule: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating automation rule")
+
+@api_router.delete("/settings/automations/{rule_id}")
+async def delete_automation_rule(rule_id: str):
+    """Delete automation rule"""
+    try:
+        result = await db.automation_rules.delete_one({"id": rule_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Automation rule not found")
+        
+        return {"message": "Automation rule deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting automation rule: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error deleting automation rule")
+
 # Scheduler for automatic sync
 scheduler = None
 
