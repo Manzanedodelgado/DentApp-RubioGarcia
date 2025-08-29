@@ -1463,7 +1463,52 @@ const Agenda = () => {
   // Load appointments when date changes
   useEffect(() => {
     fetchAppointments(selectedDate);
+    fetchSyncStatus();
   }, [selectedDate]);
+
+  // Fetch sync status
+  const fetchSyncStatus = async () => {
+    try {
+      const response = await axios.get(`${API}/sync/sheets/status`);
+      setSyncStatus(response.data);
+    } catch (error) {
+      console.error("Error fetching sync status:", error);
+    }
+  };
+
+  // Update appointment status
+  const updateAppointmentStatus = async (appointmentId, newStatus) => {
+    setUpdating(appointmentId);
+    try {
+      await axios.put(`${API}/appointments/${appointmentId}`, {
+        status: newStatus
+      });
+      
+      toast.success(`Estado actualizado a ${getStatusDisplay(newStatus).text}`);
+      
+      // Refresh appointments and sync status
+      await fetchAppointments(selectedDate);
+      await fetchSyncStatus();
+      
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      toast.error("Error al actualizar el estado de la cita");
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  // Sync all pending changes to Google Sheets
+  const syncAllToSheets = async () => {
+    try {
+      const response = await axios.post(`${API}/sync/sheets/all`);
+      toast.success("Cambios sincronizados con Google Sheets");
+      await fetchSyncStatus();
+    } catch (error) {
+      console.error("Error syncing to sheets:", error);
+      toast.error("Error al sincronizar con Google Sheets");
+    }
+  };
 
   return (
     <div className="space-y-6">
