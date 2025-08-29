@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageCircle, Smartphone, Wifi, WifiOff, QrCode, CheckCircle, AlertCircle, Send, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
+import { toast } from 'sonner';
 
 const WhatsAppManager = () => {
   const [status, setStatus] = useState({ connected: false, status: 'disconnected' });
