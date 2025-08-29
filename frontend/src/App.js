@@ -2294,6 +2294,8 @@ const SettingsPage = () => {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceResponse, setVoiceResponse] = useState("");
+  const [testMessage, setTestMessage] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
   
   // Voice recognition
   const [recognition, setRecognition] = useState(null);
