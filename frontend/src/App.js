@@ -777,10 +777,21 @@ const Agenda = () => {
     setLoading(true);
     try {
       const dateStr = formatDateForAPI(date);
+      console.log(`🔍 Fetching appointments for date: ${dateStr}`);
+      
       const response = await axios.get(`${API}/appointments/by-date?date=${dateStr}`);
+      console.log(`✅ API Response:`, response.data);
+      
       setAppointments(response.data);
+      
+      if (response.data.length > 0) {
+        console.log(`📅 Found ${response.data.length} appointments for ${dateStr}`);
+      } else {
+        console.log(`📭 No appointments found for ${dateStr}`);
+      }
     } catch (error) {
-      console.error("Error fetching appointments:", error);
+      console.error("❌ Error fetching appointments:", error);
+      console.error("Error details:", error.response?.data);
       toast.error("Error loading appointments");
       setAppointments([]);
     } finally {
