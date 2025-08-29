@@ -1916,9 +1916,15 @@ class OmniDeskAPITester:
             return False
 
     def run_all_tests(self):
-        """Run all API tests with focus on counting exact Google Sheet rows"""
+        """Run all API tests with URGENT focus on July 27, 2025 investigation"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
+        
+        # 🚨 URGENT PRIORITY: July 27, 2025 Investigation
+        print("\n🚨 URGENT PRIORITY: JULY 27, 2025 INVESTIGATION")
+        if not self.test_urgent_july_27_2025_investigation():
+            print("❌ CRITICAL: July 27, 2025 investigation failed")
+            return 1
         
         # PRIMARY FOCUS: Count exact rows in Google Sheet
         print("\n🎯 PRIMARY FOCUS: COUNT EXACT ROWS IN GOOGLE SHEET")
