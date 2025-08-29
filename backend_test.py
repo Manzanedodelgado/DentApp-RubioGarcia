@@ -2246,8 +2246,9 @@ class OmniDeskAPITester:
             return 1
 
 def main():
+    """Main function to run the review request test"""
     tester = OmniDeskAPITester()
-    return tester.run_all_tests()
+    return 0 if tester.run_review_request_test() else 1
 
 if __name__ == "__main__":
     sys.exit(main())
