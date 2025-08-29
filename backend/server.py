@@ -695,6 +695,158 @@ async def get_available_tags():
     tags = await db.contacts.aggregate(pipeline).to_list(1000)
     return [{"name": tag["_id"], "count": tag["count"]} for tag in tags]
 
+# Template Management Routes
+@api_router.get("/templates")
+async def get_templates():
+    """Get all message templates"""
+    try:
+        templates = await db.message_templates.find({}).to_list(100)
+        
+        # If no templates exist, create default ones
+        if not templates:
+            default_templates = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Recordatorio Cita",
+                    "content": "Hola {nombre}, te recordamos tu cita el {fecha} a las {hora} con {doctor} para {tratamiento}. ¡Te esperamos!",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Confirmación Cita",
+                    "content": "Estimado/a {nombre}, por favor confirma tu asistencia a la cita del {fecha} a las {hora} con {doctor}.",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Recordatorio Revisión",
+                    "content": "Hola {nombre}, es momento de tu revisión anual. Contacta con nosotros para agendar tu cita.",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            ]
+            
+            await db.message_templates.insert_many(default_templates)
+            return default_templates
+        
+        return [parse_from_mongo(template) for template in templates]
+    except Exception as e:
+        logger.error(f"Error fetching templates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching templates")
+
+@api_router.post("/templates")
+async def create_template(template_data: dict):
+    """Create a new message template"""
+    try:
+        name = template_data.get("name", "").strip()
+        content = template_data.get("content", "").strip()
+        
+        if not name or not content:
+            raise HTTPException(status_code=400, detail="Name and content are required")
+        
+        # Check if template with same name exists
+        existing = await db.message_templates.find_one({"name": name})
+        if existing:
+            raise HTTPException(status_code=400, detail="Template with this name already exists")
+        
+        new_template = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "content": content,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.message_templates.insert_one(new_template)
+        
+        return parse_from_mongo(new_template)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating template")
+
+@api_router.put("/templates/{template_id}")
+async def update_template(template_id: str, template_data: dict):
+    """Update an existing message template"""
+    try:
+        name = template_data.get("name", "").strip()
+        content = template_data.get("content", "").strip()
+        
+        if not name or not content:
+            raise HTTPException(status_code=400, detail="Name and content are required")
+        
+        # Check if template exists
+        template = await db.message_templates.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Check if another template with same name exists
+        existing = await db.message_templates.find_one({"name": name, "id": {"$ne": template_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Template with this name already exists")
+        
+        update_data = {
+            "name": name,
+            "content": content,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.message_templates.update_one(
+            {"id": template_id},
+            {"$set": update_data}
+        )
+        
+        # Get updated template
+        updated_template = await db.message_templates.find_one({"id": template_id})
+        return parse_from_mongo(updated_template)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating template")
+
+@api_router.delete("/templates/{template_id}")
+async def delete_template(template_id: str):
+    """Delete a message template"""
+    try:
+        # Check if template exists
+        template = await db.message_templates.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Delete template
+        result = await db.message_templates.delete_one({"id": template_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        return {"message": "Template deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error deleting template")
+
+@api_router.get("/templates/{template_id}")
+async def get_template(template_id: str):
+    """Get a specific message template"""
+    try:
+        template = await db.message_templates.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        return parse_from_mongo(template)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching template")
+
 # Reminder Templates Routes
 @api_router.get("/reminders/templates")
 async def get_reminder_templates():
