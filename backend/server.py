@@ -738,6 +738,52 @@ async def get_chat_session(session_id: str):
         raise HTTPException(status_code=404, detail="Chat session not found")
     return ChatSession(**parse_from_mongo(session))
 
+# Conversation Status Routes
+@api_router.get("/conversations/pending")
+async def get_pending_conversations():
+    """Get conversations that require attention"""
+    try:
+        # Get conversations that need attention (red, black, yellow status)
+        pending_conversations = await db.conversation_status.find({
+            "pending_response": True,
+            "urgency_color": {"$in": ["red", "black", "yellow"]}
+        }).sort("timestamp", -1).to_list(100)
+        
+        return [ConversationStatus(**parse_from_mongo(conv)) for conv in pending_conversations]
+    except Exception as e:
+        logger.error(f"Error fetching pending conversations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching conversations")
+
+@api_router.put("/conversations/{conversation_id}/status")
+async def update_conversation_status(conversation_id: str, status_data: dict):
+    """Update conversation status (mark as resolved, change urgency, etc.)"""
+    try:
+        update_fields = {}
+        if "urgency_color" in status_data:
+            update_fields["urgency_color"] = status_data["urgency_color"]
+            update_fields["status_description"] = URGENCY_COLORS[status_data["urgency_color"]].description
+        if "pending_response" in status_data:
+            update_fields["pending_response"] = status_data["pending_response"]
+        if "assigned_doctor" in status_data:
+            update_fields["assigned_doctor"] = status_data["assigned_doctor"]
+            
+        update_fields["updated_at"] = datetime.now(timezone.utc)
+        
+        result = await db.conversation_status.update_one(
+            {"id": conversation_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        return {"message": "Conversation status updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating conversation status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating conversation")
+
 # Dashboard Routes
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats():
