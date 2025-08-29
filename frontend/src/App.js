@@ -14,6 +14,7 @@ import { Textarea } from "./components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { toast, Toaster } from "sonner";
 import SettingsContent from "./components/ui/settings";
+import SettingsContent from "./components/ui/settings";
 
 // Authentication Context
 const AuthContext = createContext();
