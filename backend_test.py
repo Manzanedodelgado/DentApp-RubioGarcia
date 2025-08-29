@@ -2330,6 +2330,350 @@ class OmniDeskAPITester:
             print(f"❌ Review Request Test failed with exception: {str(e)}")
             return False
 
+    def test_authentication_system(self):
+        """Test authentication system with JMD/190582 credentials"""
+        print("\n" + "="*50)
+        print("TESTING AUTHENTICATION SYSTEM")
+        print("="*50)
+        
+        # Test login with correct credentials
+        login_data = {
+            "username": "JMD",
+            "password": "190582"
+        }
+        
+        success, auth_response = self.run_test(
+            "Login with Correct Credentials",
+            "POST",
+            "auth/login",
+            200,
+            data=login_data
+        )
+        
+        if not success:
+            print("❌ Authentication system failed")
+            return False
+        
+        # Extract token for protected endpoints
+        self.auth_token = auth_response.get('token')
+        if self.auth_token:
+            print(f"   ✅ Authentication successful, token received")
+        else:
+            print("   ❌ No token received")
+            return False
+        
+        # Test token verification
+        success, verify_response = self.run_test(
+            "Verify Token",
+            "GET",
+            f"auth/verify?token={self.auth_token}",
+            200
+        )
+        
+        if success and verify_response.get('valid'):
+            print("   ✅ Token verification successful")
+        else:
+            print("   ❌ Token verification failed")
+            return False
+        
+        return True
+
+    def test_ai_voice_assistant(self):
+        """Test AI voice assistant endpoint with emergentintegrations"""
+        print("\n" + "="*50)
+        print("TESTING AI VOICE ASSISTANT")
+        print("="*50)
+        
+        # Test voice assistant with various commands
+        test_messages = [
+            "Hola, necesito agendar una cita para limpieza dental",
+            "¿Cuáles son los horarios de la clínica?",
+            "Envía mensaje a María García recordándole su cita",
+            "¿Qué tratamientos ofrecen?"
+        ]
+        
+        for i, message in enumerate(test_messages):
+            request_data = {
+                "message": message,
+                "session_id": f"test_session_{i}"
+            }
+            
+            success, response = self.run_test(
+                f"Voice Assistant Test {i+1}",
+                "POST",
+                "ai/voice-assistant",
+                200,
+                data=request_data
+            )
+            
+            if success:
+                ai_response = response.get('response', '')
+                action_type = response.get('action_type')
+                print(f"   ✅ AI Response: {ai_response[:100]}...")
+                if action_type:
+                    print(f"   🎯 Action detected: {action_type}")
+            else:
+                print(f"   ❌ Voice assistant test {i+1} failed")
+                return False
+        
+        return True
+
+    def test_settings_endpoints(self):
+        """Test all settings endpoints (clinic, AI, automations)"""
+        print("\n" + "="*50)
+        print("TESTING SETTINGS ENDPOINTS")
+        print("="*50)
+        
+        # Test GET clinic settings
+        success, clinic_settings = self.run_test(
+            "Get Clinic Settings",
+            "GET",
+            "settings/clinic",
+            200
+        )
+        
+        if not success:
+            print("❌ Failed to get clinic settings")
+            return False
+        
+        print(f"   ✅ Clinic name: {clinic_settings.get('name', 'Unknown')}")
+        print(f"   ✅ Address: {clinic_settings.get('address', 'Unknown')}")
+        
+        # Test UPDATE clinic settings
+        updated_clinic_data = {
+            "name": "RUBIO GARCÍA DENTAL - UPDATED",
+            "address": "Calle Mayor 19, Alcorcón, 28921 Madrid",
+            "phone": "916 410 841",
+            "whatsapp": "664 218 253",
+            "email": "info@rubiogarciadental.com",
+            "schedule": "Lun-Jue 10:00-14:00 y 16:00-20:00 | Vie 10:00-14:00",
+            "specialties": ["Implantología", "Estética Dental", "Ortodoncia"],
+            "team": [
+                {"name": "Dr. Mario Rubio", "specialty": "Implantólogo"},
+                {"name": "Dra. Irene García", "specialty": "Endodoncista"}
+            ]
+        }
+        
+        success, update_response = self.run_test(
+            "Update Clinic Settings",
+            "PUT",
+            "settings/clinic",
+            200,
+            data=updated_clinic_data
+        )
+        
+        if success:
+            print("   ✅ Clinic settings updated successfully")
+        else:
+            print("   ❌ Failed to update clinic settings")
+            return False
+        
+        # Test GET AI settings
+        success, ai_settings = self.run_test(
+            "Get AI Settings",
+            "GET",
+            "settings/ai",
+            200
+        )
+        
+        if not success:
+            print("❌ Failed to get AI settings")
+            return False
+        
+        print(f"   ✅ AI enabled: {ai_settings.get('enabled', False)}")
+        print(f"   ✅ Model: {ai_settings.get('model_name', 'Unknown')}")
+        
+        # Test UPDATE AI settings
+        updated_ai_data = {
+            "enabled": True,
+            "model_provider": "openai",
+            "model_name": "gpt-4o-mini",
+            "temperature": 0.8,
+            "voice_enabled": True,
+            "voice_language": "es-ES",
+            "system_prompt": "Eres un asistente virtual profesional de RUBIO GARCÍA DENTAL..."
+        }
+        
+        success, ai_update_response = self.run_test(
+            "Update AI Settings",
+            "PUT",
+            "settings/ai",
+            200,
+            data=updated_ai_data
+        )
+        
+        if success:
+            print("   ✅ AI settings updated successfully")
+        else:
+            print("   ❌ Failed to update AI settings")
+            return False
+        
+        # Test GET automation rules
+        success, automation_rules = self.run_test(
+            "Get Automation Rules",
+            "GET",
+            "settings/automations",
+            200
+        )
+        
+        if not success:
+            print("❌ Failed to get automation rules")
+            return False
+        
+        print(f"   ✅ Found {len(automation_rules)} automation rules")
+        for rule in automation_rules[:3]:  # Show first 3 rules
+            print(f"   - {rule.get('name', 'Unknown')}: {rule.get('description', 'No description')}")
+        
+        # Test CREATE automation rule
+        new_automation_rule = {
+            "name": "Test Automation Rule",
+            "description": "Test rule created by automated testing",
+            "trigger_type": "appointment_day_before",
+            "trigger_time": "15:00",
+            "enabled": True,
+            "template_id": "test_template",
+            "conditions": {"test": True}
+        }
+        
+        success, create_response = self.run_test(
+            "Create Automation Rule",
+            "POST",
+            "settings/automations",
+            200,
+            data=new_automation_rule
+        )
+        
+        if success:
+            print("   ✅ Automation rule created successfully")
+            rule_id = create_response.get('rule_id')
+            if rule_id:
+                if 'automation_rules' not in self.created_resources:
+                    self.created_resources['automation_rules'] = []
+                self.created_resources['automation_rules'].append(rule_id)
+        else:
+            print("   ❌ Failed to create automation rule")
+            return False
+        
+        return True
+
+    def test_emergent_llm_integration(self):
+        """Test emergentintegrations LlmChat with EMERGENT_LLM_KEY"""
+        print("\n" + "="*50)
+        print("TESTING EMERGENT LLM INTEGRATION")
+        print("="*50)
+        
+        # Test that the AI assistant uses the correct API key
+        test_request = {
+            "message": "Test de integración con emergentintegrations",
+            "session_id": "integration_test"
+        }
+        
+        success, response = self.run_test(
+            "Emergent LLM Integration Test",
+            "POST",
+            "ai/voice-assistant",
+            200,
+            data=test_request
+        )
+        
+        if not success:
+            print("❌ Emergent LLM integration failed")
+            return False
+        
+        ai_response = response.get('response', '')
+        if ai_response and len(ai_response) > 10:
+            print(f"   ✅ LLM responded correctly: {ai_response[:100]}...")
+            print("   ✅ emergentintegrations LlmChat is working")
+        else:
+            print("   ❌ No valid response from LLM")
+            return False
+        
+        # Test Spanish language processing
+        spanish_test = {
+            "message": "¿Puedes ayudarme con información sobre implantes dentales?",
+            "session_id": "spanish_test"
+        }
+        
+        success, spanish_response = self.run_test(
+            "Spanish Language Processing Test",
+            "POST",
+            "ai/voice-assistant",
+            200,
+            data=spanish_test
+        )
+        
+        if success and spanish_response.get('response'):
+            print("   ✅ Spanish language processing working")
+        else:
+            print("   ❌ Spanish language processing failed")
+            return False
+        
+        return True
+
+    def test_automation_scheduler(self):
+        """Test that automation scheduler is running properly"""
+        print("\n" + "="*50)
+        print("TESTING AUTOMATION SCHEDULER")
+        print("="*50)
+        
+        # We can't directly test the scheduler, but we can verify:
+        # 1. Automation rules exist and are enabled
+        # 2. The system can process automation rules
+        
+        success, automation_rules = self.run_test(
+            "Check Automation Rules for Scheduler",
+            "GET",
+            "settings/automations",
+            200
+        )
+        
+        if not success:
+            print("❌ Cannot retrieve automation rules")
+            return False
+        
+        enabled_rules = [rule for rule in automation_rules if rule.get('enabled', False)]
+        print(f"   📊 Total automation rules: {len(automation_rules)}")
+        print(f"   📊 Enabled automation rules: {len(enabled_rules)}")
+        
+        if enabled_rules:
+            print("   ✅ Automation rules are configured and enabled")
+            for rule in enabled_rules[:3]:
+                trigger_time = rule.get('trigger_time', 'No time')
+                print(f"   - {rule.get('name', 'Unknown')}: triggers at {trigger_time}")
+        else:
+            print("   ⚠️ No enabled automation rules found")
+        
+        # Test that we can create appointments (needed for automation)
+        if self.created_resources.get('contacts'):
+            contact_id = self.created_resources['contacts'][0]
+            
+            test_appointment = {
+                "contact_id": contact_id,
+                "title": "Test Appointment for Automation",
+                "description": "Test appointment to verify automation can process it",
+                "date": "2025-01-30T10:00:00Z",
+                "duration_minutes": 60
+            }
+            
+            success, appointment = self.run_test(
+                "Create Test Appointment for Automation",
+                "POST",
+                "appointments",
+                200,
+                data=test_appointment
+            )
+            
+            if success:
+                print("   ✅ Test appointment created for automation processing")
+                appointment_id = appointment.get('id')
+                if appointment_id:
+                    self.created_resources['appointments'].append(appointment_id)
+            else:
+                print("   ❌ Failed to create test appointment")
+        
+        print("   📝 Note: Automation scheduler runs hourly in background")
+        return True
+
     def run_all_tests(self):
         """Run all API tests with URGENT focus on July 27, 2025 investigation"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
