@@ -1,100 +1,87 @@
 <analysis>
-The previous AI engineer successfully initiated and built an omnichannel SaaS application, OmniDesk, later rebranded to RUBIO GARCÍA DENTAL, from scratch. The initial phase focused on establishing a React frontend, FastAPI backend, and MongoDB database, ensuring adherence to strict environment and URL rules. Core MVP features, including basic UI and CRUD operations for contacts/messages, were implemented and tested.
+The previous AI engineer successfully expanded the RUBIO GARCÍA DENTAL SaaS application, initially an MVP. Key development included: replacing  with  for scheduled Google Sheet imports; creating a dynamic Agenda section displaying appointments with a monthly calendar, date filtering, and 5-minute refresh; resolving Google Sheets API key issues and ensuring accurate data import (2,293 appointments, 752 unique patients) using specific column mappings.
 
-Subsequent development cycles addressed key user requests: integrating an AI for WhatsApp responses with a training module using Emergent LLM key, making the application fully responsive, and incorporating user-provided branding assets. The AI functionality was thoroughly tested and an API fix was applied. The latest work revolves around integrating appointment data from a Google Sheet, with a requirement for a 5-minute synchronization. The engineer created an  script but encountered an error installing  for scheduling, leaving the display of imported appointments as the immediate pending task.
+Subsequently, a Comunicaciones module was built, featuring a 3-panel chat interface with AI toggle, patient history, and bulk reminder capabilities. This was then refactored into a dedicated Recordatorios tab with granular selection, template dropdown, CSV import, and sent status. A Plantillas section for CRUD operations on message templates was added, integrated with Recordatorios. Finally, a robust administrator authentication system (user: JMD, pass: 190582) was implemented, protecting the entire application, and a Configuración tab with AI capabilities was initiated.
 </analysis>
 
 <product_requirements>
-The user requested a comprehensive SaaS application, similar to Kokuai, focusing on omnichannel communication, appointment management, automation, and marketing for businesses (e.g., dental clinics).
+The user requested an omnichannel SaaS application, RUBIO GARCÍA DENTAL, for managing dental clinic operations. Key modules include Chat & Communication, Broadcast & Marketing, Agenda & Appointments, Reminders, Templates, Configuration, and Account. The UX/UI must be modern, responsive, and intuitive.
 
-Key modules include:
-1.  **Chat & Communication:** Unified inbox for various channels (WhatsApp, email, SMS, Facebook Messenger, IG), contact/agent management, group organization, and conversation analytics.
-2.  **Broadcast & Marketing:** Mass campaign sending across channels, segmentation, and detailed reports.
-3.  **Agenda & Appointments:** Integrated calendar, online booking with auto-confirmations, reminders, and easy re-scheduling/cancellations.
-4.  **Recordatorios y Recalls:** Automated messages for appointments, payments, and renewals, plus programmed recalls for inactive clients.
-5.  **Plantillas y Automatismos:** Library of customizable message templates and automated workflows.
-6.  **Configuración e Integraciones:** Integration with CRMs, Google Calendar, Outlook, medical/ERP systems, and a multi-user admin panel.
-7.  **Cuenta y Soporte:** Billing information, support access, and help center.
-
-The UX/UI must be modern, intuitive, configurable, and minimize friction, featuring a dashboard-style sidebar and state graphs.
-
-Specific requests during development included:
-*   Rebranding to RUBIO GARCÍA DENTAL using provided images.
-*   Integrating an AI to answer WhatsApp messages, including a training space for behavior customization.
-*   Ensuring the application is fully responsive for desktop and mobile.
-*   Using a specific Logo blanco.jpeg as a vignette.
-*   Integrating appointment data from a Google Sheet (), with automatic updates every 5 minutes.
+Specific feature requests addressed during development:
+1.  **Google Sheets Integration:** Import appointment data from a provided Google Sheet (), update every 5 minutes, using Fecha as the key. Prevent patient duplication.
+2.  **Agenda Module:** A new menu option Agenda to display imported appointments in a list format, selectable by a monthly calendar, with future editability and selection for confirmation messages.
+3.  **Communications Module:** A free-form communication interface with AI chatbot functionality (toggleable), bulk appointment reminders using templates, and a patient summary with recent appointments and treatment history.
+4.  **Reminders Module:** A dedicated Recordatorios tab with date-specific appointment loading, individual/bulk selection, template dropdown, sent status, and CSV import for annual/revision reminders.
+5.  **Templates Module:** A Plantillas tab for creating, modifying, and deleting message templates, with a name for each and visible automatic edit fields (variables).
+6.  **Admin Authentication:** Implement a login system with username JMD and password 190582 to secure the application.
+7.  **Settings Module:** Add a Configuración option to implement future modifications, specifically including AI capabilities.
 </product_requirements>
 
 <key_technical_concepts>
--   **Frontend:** React (version 19), Shadcn/UI, Tailwind CSS, Vite (implicitly via Craco).
--   **Backend:** FastAPI (Python), MongoDB (using  and ), .
--   **Database:** MongoDB with UUIDs for IDs and ISO 8601 for  serialization.
--   **LLM Integration:**  library, Emergent LLM Key.
--   **Scheduling:**  (attempted).
--   **API Communication:** Axios for frontend,  for backend,  prefix for backend routes.
--   **Google Sheets API:**  for data import.
+-   **Frontend:** React, Shadcn/UI, Tailwind CSS, Vite.
+-   **Backend:** FastAPI (Python), MongoDB (pymongo, motor), .
+-   **Database:** MongoDB with UUIDs for IDs.
+-   **Scheduling:**  (replaced ).
+-   **API Integration:**  for Google Sheets,  for LLM.
+-   **Authentication:** JWT-like session tokens stored in MongoDB.
 </key_technical_concepts>
 
 <code_architecture>
 
 
-
 -   
-    -   **Importance:** This is the main FastAPI application file, handling all backend logic, API routes, database interactions, and AI integration.
+    -   **Importance:** The core FastAPI application, handling all backend logic, API routes, and database interactions.
     -   **Changes:**
-        -   Initial setup for CRUD operations (contacts, messages, AI training).
-        -   Integration of the AI model and its endpoints (e.g., , ).
-        -   API endpoint fixes for request body formats (specifically for chat message creation).
-        -   Includes logic for interacting with MongoDB and potentially for scheduling tasks.
+        -   Implemented  for 5-minute Google Sheets synchronization.
+        -   Added API endpoints for appointment management (manual sync, date-filtered retrieval).
+        -   Introduced endpoints for the Communications module (sending messages, bulk reminders, chat history, patient history).
+        -   Added CRUD endpoints for Reminder Templates and CSV processing.
+        -   Implemented authentication endpoints (, , ) and session management.
 
 -   
-    -   **Importance:** The main React component that defines the application's layout, navigation, and integrates various UI components and functionalities.
+    -   **Importance:** Main React component defining application layout, navigation, and integrating UI components.
     -   **Changes:**
-        -   Initial dashboard structure with a sidebar and main content area.
-        -   Implemented responsiveness for desktop and mobile views.
-        -   Integrated AI chat interface and AI training section.
-        -   Incorporated rebranding elements, including displaying user-provided images (, ).
-        -   Uses Shadcn/UI components for a consistent and modern look.
+        -   Updated sidebar navigation to include Agenda, Comunicaciones, Recordatorios, Plantillas, and Configuración.
+        -   Integrated the  component for notifications.
+        -   Replaced placeholder appointment display with a functional  component (first complex, then simplified to date picker + list).
+        -   Integrated , , , and  components.
+        -   Implemented ,  screen, and  wrapper to protect the main application, including logout functionality.
+        -   Corrected calendar logic and initial date display for appointments.
 
 -   
-    -   **Importance:** Contains the main CSS for the React application, primarily Tailwind CSS directives and custom styles.
+    -   **Importance:** Handles fetching and processing appointment data from Google Sheets into MongoDB.
     -   **Changes:**
-        -   Configured for responsive design and custom styling based on the RUBIO GARCÍA DENTAL aesthetic.
-        -   Ensured adherence to UI/UX guidelines (e.g., no default dark backgrounds, appropriate gradients, spacing).
+        -   Refactored  for reusability and robustness.
+        -   Implemented logic to prevent duplicate patient entries.
+        -   Updated Google Sheets API integration to correctly read and map specific columns (Fecha, Hora, Nombre, Apellidos, NumPac, TelMovil, Doctor, Tratamiento, EstadoCita) from an extended range ().
 
 -   
-    -   **Importance:** Lists all Python dependencies required for the backend.
-    -   **Changes:** Updated to include , , and . An attempt was made to add .
+    -   **Importance:** Stores backend environment variables.
+    -   **Changes:** Added .
 
 -   
-    -   **Importance:** Defines Node.js dependencies and scripts for the frontend.
-    -   **Changes:** Confirmed and updated necessary dependencies like , , and various  packages for Shadcn components.
+    -   **Importance:** Lists Python dependencies.
+    -   **Changes:**  was replaced by ;  was added.
 
 -   
-    -   **Importance:** A newly created script intended for fetching and importing appointment data from the specified Google Sheet into the MongoDB database.
-    -   **Changes:** Created to encapsulate the logic for reading data from the Google Sheet.
-
--    and 
-    -   **Importance:** Store environment-specific variables like  and , respectively, crucial for service communication and configuration.
-    -   **Changes:** Not directly modified, but their existence and usage are critical for the application's correct operation.
-
+    -   **Importance:** Provides instructions for the user on how to configure the Google Sheets API key.
+    -   **Changes:** This file was newly created.
 </code_architecture>
 
 <pending_tasks>
--   Resolve the  installation error ().
--   Implement the scheduled Google Sheets appointment synchronization to run every 5 minutes.
--   Update the frontend () to display the imported appointments from Google Sheets.
+-   Implement the detailed AI capabilities within the newly created Configuración (Settings) component, beyond just the basic UI structure.
 </pending_tasks>
 
 <current_work>
-Immediately before this summary request, the AI engineer was focused on integrating appointment data from a Google Sheet provided by the user. An  script was created in the  directory, designed to handle the fetching and parsing of data from the Google Sheet. The user explicitly requested that this data synchronization occur every 5 minutes.
+Immediately before this summary request, the AI engineer was implementing a new Configuración (Settings) section for the application. The user requested this section for future updates and fixes, specifically asking to Dale capacidades de IA (give it AI capabilities).
 
-To achieve this, the AI engineer attempted to install  via , but this command failed with the error ERROR: No matching distribution found for asyncio-cron. This issue prevented the immediate implementation of the scheduled sync.
+The AI engineer's last action was to create the frontend component for these settings and integrate it into the main application's navigation and rendering logic. Specifically:
+1.  A new  component was created. This component likely includes placeholder UI for various AI-related configurations (e.g., AI model management, advanced settings).
+2.  The  function in  was updated to display this  component when the corresponding navigation item is selected.
 
-Following this dependency error, the user inquired, Cómo puedo ver las citas cargadas de Google drive?. The AI engineer responded that the next steps would involve successfully loading the real appointment data and then updating the frontend interface to correctly display these appointments. Therefore, the current work is in a state where the backend script for importing data exists, but the scheduling mechanism is blocked by a dependency error, and the frontend display for this new data is yet to be implemented.
+The current state is that the Configuración tab is present in the UI and navigable, but the specific AI capabilities requested by the user are not yet implemented. The component is a structural placeholder awaiting the actual integration and configuration options for AI functionalities.
 </current_work>
 
 <optional_next_step>
-Resolve the  installation error to enable scheduled Google Sheets data synchronization.
+Implement the specific AI capabilities and advanced configuration options within the  component.
 </optional_next_step>
