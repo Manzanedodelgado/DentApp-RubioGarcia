@@ -164,7 +164,7 @@ backend:
 
   - task: "Fix Google Sheets API access for real data import"
     implemented: true
-    working: false
+    working: true
     file: "backend/import_data.py, backend/.env"
     stuck_count: 1
     priority: "high"
@@ -176,6 +176,9 @@ backend:
         - working: false
         - agent: "testing"
         - comment: "✅ IMPROVED INTEGRATION TESTED: The improved Google Sheets integration is working correctly with excellent duplicate prevention and data handling. ✅ Duplicate Prevention: Multiple sync calls create no duplicate contacts (11 contacts maintained across syncs) ✅ Date Ordering: All appointments properly ordered from January 2025 (2025-01-20 to 2025-01-30) ✅ Data Quality: All 12 appointments have proper titles, dates, contact names, and normalized statuses ✅ Date Filtering: All specific date queries work perfectly (tested 2025-01-20, 2025-01-22, 2025-01-25, 2025-01-29) ✅ Contact Management: No duplicate contacts, existing contacts reused properly. However, ❌ GOOGLE SHEETS API STILL BLOCKED: System continues using fallback data due to 'API_KEY_SERVICE_BLOCKED' error. The improved import logic works perfectly but needs real Google Sheets API access to be fully functional."
+        - working: true
+        - agent: "testing"
+        - comment: "🎉 NEW GOOGLE SHEETS API KEY WORKING PERFECTLY! ✅ REAL DATA CONFIRMED: New API key AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A successfully imports REAL data from Google Sheets. Only 0.3% fallback names detected (3 out of 1000 appointments). ✅ MASSIVE DATA IMPORT: 1000 real appointments imported vs 12 fallback appointments. ✅ REAL PATIENT NAMES: 752 unique real patient names found (vs 11 fallback names). ✅ CORRECT DATE RANGE: Appointments start from January 2, 2025 with proper 'Fecha' column ordering. ✅ NO DUPLICATES: 752 contacts with 752 unique names - perfect duplicate prevention. ✅ DATE FILTERING: January 2, 2025 shows 23 real appointments. ✅ NO MORE ERRORS: 'API_KEY_SERVICE_BLOCKED' errors completely resolved. Fixed range issue by changing from 'Sheet1!A:K' to 'A:K'. Backend logs show: 'Successfully retrieved 2328 rows from Google Sheets' and 'Successfully processed 2293 appointments from Google Sheets'. All review requirements met perfectly!"
 
 frontend:
   - task: "Create Agenda section in navigation"
