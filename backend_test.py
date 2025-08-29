@@ -651,7 +651,7 @@ class OmniDeskAPITester:
 
     def run_all_tests(self):
         """Run all API tests"""
-        print("🚀 Starting OmniDesk API Testing Suite")
+        print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
         
         # Test dashboard first
@@ -678,6 +678,15 @@ class OmniDeskAPITester:
         
         if not self.test_campaigns_crud():
             print("❌ Campaigns CRUD tests failed")
+            return 1
+        
+        # Test AI functionality (high priority)
+        if not self.test_ai_training_crud():
+            print("❌ AI Training tests failed")
+            return 1
+        
+        if not self.test_chat_functionality():
+            print("❌ AI Chat functionality tests failed")
             return 1
         
         # Test additional endpoints
