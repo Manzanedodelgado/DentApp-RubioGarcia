@@ -35,6 +35,8 @@ def get_google_sheets_data():
         service = build('sheets', 'v4', developerKey=GOOGLE_SHEETS_API_KEY)
         sheet = service.spreadsheets()
         
+        logger.info(f"🔍 Attempting to fetch data from Google Sheet ID: {SPREADSHEET_ID}")
+        
         # Call the Sheets API
         result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
         values = result.get('values', [])
@@ -43,18 +45,31 @@ def get_google_sheets_data():
             logger.warning("No data found in Google Sheets, using fallback data")
             return get_fallback_data()
         
+        logger.info(f"📊 Successfully retrieved {len(values)} rows from Google Sheets")
+        
         # Convert to list of dictionaries
         headers = values[0] if values else []
+        logger.info(f"📋 Sheet headers found: {headers}")
+        
         appointments = []
         
-        for row in values[1:]:  # Skip header row
+        for i, row in enumerate(values[1:], start=2):  # Skip header row, start counting from row 2
             if len(row) >= len(headers):
                 appointment = {}
-                for i, header in enumerate(headers):
-                    appointment[header] = row[i] if i < len(row) else ""
-                appointments.append(appointment)
+                for j, header in enumerate(headers):
+                    appointment[header] = row[j] if j < len(row) else ""
+                
+                # Only add if we have essential data (at least name and date)
+                if appointment.get('Nombre') and appointment.get('Fecha'):
+                    appointments.append(appointment)
+                    logger.debug(f"Row {i}: {appointment.get('Nombre')} - {appointment.get('Fecha')}")
         
-        logger.info(f"✅ Successfully fetched {len(appointments)} appointments from Google Sheets")
+        logger.info(f"✅ Successfully processed {len(appointments)} appointments from Google Sheets")
+        
+        # Sort by date (Fecha column) to ensure proper ordering from January 1, 2025
+        appointments.sort(key=lambda x: x.get('Fecha', ''))
+        logger.info(f"📅 Appointments sorted by date. Date range: {appointments[0].get('Fecha', '')} to {appointments[-1].get('Fecha', '')}")
+        
         return appointments
         
     except Exception as e:
