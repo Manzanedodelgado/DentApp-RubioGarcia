@@ -1117,8 +1117,8 @@ function App() {
         return <Dashboard />;
       case "contacts":
         return <Contacts />;
-      case "appointments":
-        return <Appointments />;
+      case "agenda":
+        return <Agenda />;
       case "messages":
         return <Messages />;
       case "ai-training":
