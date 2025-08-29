@@ -19,7 +19,7 @@ db = client[os.environ['DB_NAME']]
 # Google Sheets configuration
 GOOGLE_SHEETS_API_KEY = os.environ.get('GOOGLE_SHEETS_API_KEY')
 SPREADSHEET_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ'
-RANGE_NAME = 'Sheet1!A:K'  # Adjust this range as needed
+RANGE_NAME = 'A:K'  # Try without sheet name first
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
