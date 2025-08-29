@@ -22,6 +22,12 @@ const SettingsContent = ({
   stopListening,
   voiceResponse
 }) => {
+  const modelProviders = {
+    "gpt-4o-mini": "openai",
+    "gpt-4o": "openai",
+    "claude-3-7-sonnet-20250219": "anthropic",
+    "gemini-2.0-flash": "gemini"
+  };
   return (
     <>
       {/* Configuration Tabs */}
