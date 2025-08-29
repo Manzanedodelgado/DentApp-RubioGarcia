@@ -290,6 +290,109 @@ const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }
   );
 };
 
+// Pending Conversations Component
+const PendingConversations = () => {
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPendingConversations();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingConversations, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchPendingConversations = async () => {
+    try {
+      const response = await axios.get(`${API}/conversations/pending`);
+      setConversations(response.data);
+    } catch (error) {
+      console.error("Error fetching pending conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getUrgencyColor = (color) => {
+    const colors = {
+      red: "bg-red-500",
+      black: "bg-gray-800", 
+      yellow: "bg-yellow-500",
+      gray: "bg-gray-400",
+      green: "bg-green-500"
+    };
+    return colors[color] || colors.gray;
+  };
+
+  const markAsResolved = async (conversationId) => {
+    try {
+      await axios.put(`${API}/conversations/${conversationId}/status`, {
+        urgency_color: "green",
+        pending_response: false
+      });
+      fetchPendingConversations(); // Refresh list
+      toast.success("Conversación marcada como resuelta");
+    } catch (error) {
+      console.error("Error updating conversation:", error);
+      toast.error("Error al actualizar conversación");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center">
+          <MessageCircle className="w-5 h-5 mr-2" />
+          Conversaciones Pendientes
+          {conversations.length > 0 && (
+            <Badge className="ml-2 bg-red-500">{conversations.length}</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="text-center text-gray-500 py-4">
+            <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
+            <p className="text-sm">No hay conversaciones pendientes</p>
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {conversations.map((conv) => (
+              <div key={conv.id} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
+                <div className={`w-3 h-3 rounded-full mt-2 ${getUrgencyColor(conv.urgency_color)}`}></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{conv.contact_name}</p>
+                  <p className="text-xs text-gray-600 truncate">{conv.last_message}</p>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="text-xs text-gray-500">{conv.status_description}</span>
+                    {conv.pain_level && (
+                      <Badge variant="outline" className="text-xs">
+                        Dolor: {conv.pain_level}/10
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => markAsResolved(conv.id)}
+                  className="text-xs"
+                >
+                  <CheckCircle className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 // Main Dashboard Component
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
