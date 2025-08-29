@@ -261,7 +261,7 @@ metadata:
 
   - task: "Test new column mapping from Google Sheets"
     implemented: true
-    working: false
+    working: true
     file: "backend/import_data.py, backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -273,6 +273,9 @@ metadata:
         - working: false
         - agent: "testing"
         - comment: "🎯 URGENT GOOGLE SHEETS COLUMN VERIFICATION COMPLETE - EXACT DISCREPANCY IDENTIFIED! ✅ HORA COLUMN CONFIRMED: 'Hora' column IS present in Google Sheets at Column I as expected ❌ DOCTOR COLUMN MISSING: 'Doctor' column is NOT present in Google Sheets - sheet only has 11 columns (A-K), user expects Column L ❌ COLUMN MAPPING ISSUES: User expects Nombre at Column E but actual is Apellidos, User expects Apellidos at Column F but actual is Nombre, User expects Estado at Column J but actual is EstadoCita ✅ CORRECT COLUMNS: NumPac (D), TelMovil (G), Fecha (H), Hora (I), Tratamiento (K) match expectations 📊 ACTUAL GOOGLE SHEETS HEADERS: A:Registro, B:CitMod, C:FechaAlta, D:NumPac, E:Apellidos, F:Nombre, G:TelMovil, H:Fecha, I:Hora, J:EstadoCita, K:Tratamiento 📊 MISSING DATA IN APPOINTMENTS: Patient numbers, phone numbers, doctor names, treatment details, and time fields are not being stored in appointment records despite being available in Google Sheets. The import_data.py reads the data but doesn't store all fields in the appointment model. CRITICAL: User's Google Sheets does NOT have a Doctor column (Column L) - this is the root cause of the missing doctor information."
+        - working: true
+        - agent: "testing"
+        - comment: "🎉 EXTENDED RANGE A:O VERIFICATION COMPLETE - ALL REQUIREMENTS MET PERFECTLY! ✅ FRESH SYNC: Successfully triggered POST /api/appointments/sync with extended range A:O ✅ DOCTOR DATA POPULATED: 100% of appointments now have doctor field populated (1000/1000) ✅ EXPECTED DOCTORS FOUND: Both 'Dr. Mario Rubio' and 'Dra. Irene Garcia' confirmed in appointment records ✅ ALL REQUIRED FIELDS: patient_number (100%), phone (97.4%), doctor (100%), treatment (100%), time (100%) ✅ GOOGLE SHEETS HEADERS: Extended headers now include ['Registro', 'CitMod', 'FechaAlta', 'NumPac', 'Apellidos', 'Nombre', 'TelMovil', 'Fecha', 'Hora', 'EstadoCita', 'Tratamiento', 'Odontologo', 'Notas', 'Duracion', 'FechaHoraIni'] ✅ APPOINTMENT MODEL FIXED: Updated server.py Appointment model to include patient_number, phone, doctor, treatment, time fields ✅ COLUMN MAPPING WORKING: Range A:O successfully imports Column L (Odontologo) as doctor field ✅ FIELD VERIFICATION: Sample appointments show complete data - Patient: Mayssa Auolad Alid, Doctor: 'Dra. Miriam Carrasco', Patient#: '5876', Phone: '602847677', Treatment: 'Otros', Time: '10:00' ✅ DATE FILTERING: January 20, 2025 shows 32 appointments with complete field data. The extended range A:O is working perfectly and all review requirements exceeded!"
 
 agent_communication:
     - agent: "main"
