@@ -717,7 +717,7 @@ const AITraining = () => {
   );
 };
 
-// Agenda Component - REBUILT FROM SCRATCH
+// Agenda Component - Using specified Google Sheets columns
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 1)); // January 1, 2025
   const [appointments, setAppointments] = useState([]);
@@ -738,6 +738,17 @@ const Agenda = () => {
     });
   };
 
+  // Get status icon and color for appointment status
+  const getStatusDisplay = (status) => {
+    const statusMap = {
+      'scheduled': { text: 'Planificada', color: 'text-blue-600', bg: 'bg-blue-50', icon: '📅' },
+      'confirmed': { text: 'Confirmada', color: 'text-green-600', bg: 'bg-green-50', icon: '✅' },
+      'cancelled': { text: 'Cancelada', color: 'text-red-600', bg: 'bg-red-50', icon: '❌' },
+      'completed': { text: 'Completada', color: 'text-gray-600', bg: 'bg-gray-50', icon: '✔️' }
+    };
+    return statusMap[status] || statusMap['scheduled'];
+  };
+
   // Fetch appointments for selected date
   const fetchAppointments = async (date) => {
     setLoading(true);
@@ -746,8 +757,16 @@ const Agenda = () => {
       console.log(`Fetching appointments for: ${dateStr}`);
       
       const response = await axios.get(`${API}/appointments/by-date?date=${dateStr}`);
-      setAppointments(response.data);
-      console.log(`Found ${response.data.length} appointments for ${dateStr}`);
+      
+      // Sort by time (Hora column) within the selected date
+      const sortedAppointments = response.data.sort((a, b) => {
+        const timeA = a.time || a.date.split('T')[1] || '00:00';
+        const timeB = b.time || b.date.split('T')[1] || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      
+      setAppointments(sortedAppointments);
+      console.log(`Found ${sortedAppointments.length} appointments for ${dateStr}`);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       setAppointments([]);
@@ -765,7 +784,7 @@ const Agenda = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Agenda - {formatDateForDisplay(selectedDate)}</h1>
       
-      {/* Simple Date Picker */}
+      {/* Date Selector */}
       <Card>
         <CardHeader>
           <CardTitle>Seleccionar Fecha</CardTitle>
@@ -775,7 +794,7 @@ const Agenda = () => {
             type="date" 
             value={formatDateForAPI(selectedDate)}
             onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            className="w-full p-2 border rounded"
+            className="w-full p-3 border rounded-lg text-lg"
             min="2025-01-01"
           />
         </CardContent>
@@ -784,32 +803,123 @@ const Agenda = () => {
       {/* Appointments List */}
       <Card>
         <CardHeader>
-          <CardTitle>Citas para {formatDateForDisplay(selectedDate)}</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Citas para {formatDateForDisplay(selectedDate)}</span>
+            <span className="text-sm font-normal text-gray-500">
+              {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-4">Cargando...</div>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Cargando citas...</p>
+            </div>
           ) : appointments.length > 0 ? (
             <div className="space-y-4">
-              {appointments.map((appointment, index) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <h3 className="font-semibold text-lg">{appointment.contact_name}</h3>
-                  <p className="text-gray-600">{appointment.title}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(appointment.date).toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })} - {appointment.duration_minutes} min
-                  </p>
-                  {appointment.description && (
-                    <p className="text-sm text-gray-500 mt-2">{appointment.description}</p>
-                  )}
-                </div>
-              ))}
+              {appointments.map((appointment, index) => {
+                const statusDisplay = getStatusDisplay(appointment.status);
+                return (
+                  <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    
+                    {/* Header with Name, Patient Number and Status */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                          {appointment.contact_name.split(' ').map(n => n.charAt(0)).join('').slice(0,2)}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg text-gray-900">
+                            {appointment.contact_name}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            NumPac: {appointment.patient_number || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Status Check */}
+                      <div className={`flex items-center space-x-2 px-3 py-1 rounded-full ${statusDisplay.bg}`}>
+                        <span className="text-lg">{statusDisplay.icon}</span>
+                        <span className={`text-sm font-medium ${statusDisplay.color}`}>
+                          {statusDisplay.text}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Appointment Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg">
+                      
+                      {/* Time */}
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium">Hora:</span>
+                        <span className="text-sm">
+                          {appointment.time || new Date(appointment.date).toLocaleTimeString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Phone */}
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium">Teléfono:</span>
+                        <span className="text-sm">{appointment.phone || 'No especificado'}</span>
+                      </div>
+
+                      {/* Treatment */}
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium">Tratamiento:</span>
+                        <span className="text-sm">{appointment.treatment || 'No especificado'}</span>
+                      </div>
+
+                      {/* Doctor */}
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium">Doctor:</span>
+                        <span className="text-sm">{appointment.doctor || 'No asignado'}</span>
+                      </div>
+
+                    </div>
+
+                    {/* Status Change Options */}
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-gray-500 mb-2">Cambiar estado:</p>
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => {/* TODO: Update status */}}
+                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"
+                        >
+                          📅 Planificada
+                        </button>
+                        <button 
+                          onClick={() => {/* TODO: Update status */}}
+                          className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200"
+                        >
+                          ✅ Confirmada
+                        </button>
+                        <button 
+                          onClick={() => {/* TODO: Update status */}}
+                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-full hover:bg-red-200"
+                        >
+                          ❌ Cancelada
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              No hay citas programadas para esta fecha
+            <div className="text-center py-12 text-gray-500">
+              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No hay citas programadas</h3>
+              <p>No se encontraron citas para la fecha seleccionada.</p>
             </div>
           )}
         </CardContent>
