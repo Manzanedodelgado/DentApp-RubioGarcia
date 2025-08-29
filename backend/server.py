@@ -13,6 +13,7 @@ from enum import Enum
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 import asyncio
 
 ROOT_DIR = Path(__file__).parent
