@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Crear una opción en el menú que sea Agenda donde se reflejen las citas ya creadas. La firma de visualizarlo será en lista con un formato atractivo donde el día a visualizar se elegirá en en la parte superior donde pincharemos el día en un calendario mensual. Se tendrá que actualizar cada 5 min. Esta agenda debe ser editable en un futuro. En el apartado de citas será donde hagamos la selección de las citas para mandar mensaje de confirmación"
+user_problem_statement: "Implementar capacidades de IA en la sección de Configuración para crear un asistente virtual con voz donde se puedan dar comandos como enviar mensajes a pacientes. Crear automatizaciones para envío de recordatorios el día anterior a las 16:00h, mandar mensajes en nuevas citas, y enviar consentimientos informados para cirugías. Implementar un widget PWA para iPhone para hablar con la IA."
 
 backend:
   - task: "Fix asyncio-cron dependency error"
