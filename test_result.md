@@ -101,3 +101,110 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Crear una opción en el menú que sea Agenda donde se reflejen las citas ya creadas. La firma de visualizarlo será en lista con un formato atractivo donde el día a visualizar se elegirá en en la parte superior donde pincharemos el día en un calendario mensual. Se tendrá que actualizar cada 5 min. Esta agenda debe ser editable en un futuro. En el apartado de citas será donde hagamos la selección de las citas para mandar mensaje de confirmación"
+
+backend:
+  - task: "Fix asyncio-cron dependency error"
+    implemented: false
+    working: "NA"
+    file: "backend/requirements.txt, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Need to replace asyncio-cron with working alternative like apscheduler for 5-minute sync"
+
+  - task: "Implement Google Sheets data sync"
+    implemented: false
+    working: "NA"
+    file: "backend/import_data.py, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Current import_data.py has hardcoded data, needs to connect to actual Google Sheets"
+
+  - task: "Add appointment sync endpoint"
+    implemented: false
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Need API endpoint to trigger appointment sync and filter by date"
+
+frontend:
+  - task: "Create Agenda section in navigation"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Need to add Agenda option to navigation menu replacing current Appointments section"
+
+  - task: "Implement monthly calendar selector"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Need calendar component for day selection at top of Agenda view"
+
+  - task: "Create appointment list with selection"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Attractive list format with selection for confirmation messages"
+
+  - task: "Implement 5-minute auto-refresh"
+    implemented: false
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Auto-refresh appointments every 5 minutes in Agenda view"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Fix asyncio-cron dependency error"
+    - "Implement Google Sheets data sync"
+    - "Add appointment sync endpoint"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+    - message: "Starting implementation of Agenda section with calendar and appointment management. Will fix backend dependencies first, then implement frontend calendar interface."
