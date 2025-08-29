@@ -538,6 +538,27 @@ async def create_chat_session(contact_id: str, contact_name: str, contact_phone:
     await db.chat_sessions.insert_one(session_data)
     return session_obj
 
+class ChatSessionCreate(BaseModel):
+    contact_id: str
+    contact_name: str
+    contact_phone: str
+
+@api_router.post("/chat/sessions/create", response_model=ChatSession)
+async def create_chat_session_body(session_data: ChatSessionCreate):
+    # Check if active session exists
+    existing = await db.chat_sessions.find_one({
+        "contact_id": session_data.contact_id,
+        "is_active": True
+    })
+    
+    if existing:
+        return ChatSession(**parse_from_mongo(existing))
+    
+    session_obj = ChatSession(**session_data.dict())
+    session_data_dict = prepare_for_mongo(session_obj.dict())
+    await db.chat_sessions.insert_one(session_data_dict)
+    return session_obj
+
 @api_router.post("/chat/message")
 async def send_chat_message(session_id: str, message: ChatMessage):
     # Get session
