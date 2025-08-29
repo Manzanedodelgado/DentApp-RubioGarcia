@@ -315,6 +315,16 @@ class SettingsUpdate(BaseModel):
     ai: Optional[AISettings] = None
     automations: Optional[List[AutomationRule]] = None
 
+# WhatsApp Models
+class WhatsAppMessage(BaseModel):
+    phone_number: str
+    message: str
+    platform: str = "whatsapp"
+
+class WhatsAppReminder(BaseModel):
+    phone_number: str
+    appointment_data: Dict[str, Any]
+
 # Conversation Status Models
 class ConversationStatus(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
