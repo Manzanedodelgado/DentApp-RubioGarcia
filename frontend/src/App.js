@@ -2777,45 +2777,7 @@ const SettingsPage = () => {
 
 // Messages Component (Updated)
 const Messages = () => {
-  return (
-    <div className="space-y-4 lg:space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900">WhatsApp IA</h1>
-        <Button>
-          <MessageCircle className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Nueva Conversación</span>
-          <span className="sm:hidden">Nueva</span>
-        </Button>
-      </div>
-
-      <Card 
-        className="relative overflow-hidden"
-        style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1556745753-b2904692b3cd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwzfHxjdXN0b21lciUyMHNlcnZpY2V8ZW58MHx8fHwxNzU2NDI2NTg0fDA&ixlib=rb-4.1.0&q=85)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      >
-        <div className="absolute inset-0 bg-slate-900 bg-opacity-80" />
-        <CardHeader className="relative z-10 text-white">
-          <CardTitle className="text-xl lg:text-2xl">WhatsApp con Inteligencia Artificial</CardTitle>
-          <CardDescription className="text-slate-300">
-            Respuestas automáticas a consultas de pacientes, agendamiento de citas y atención 24/7.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      <div className="text-center py-12">
-        <Bot className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-slate-600 mb-2">Conecta WhatsApp Business</h3>
-        <p className="text-slate-500 mb-4">Configura la IA primero, luego conecta tu WhatsApp Business para automatizar respuestas</p>
-        <Button variant="outline">
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Configurar Conexión
-        </Button>
-      </div>
-    </div>
-  );
+  return <WhatsAppManager />;
 };
 
 // Main App Component with Authentication
