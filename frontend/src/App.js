@@ -1534,10 +1534,27 @@ const Agenda = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Citas para {formatDateForDisplay(selectedDate)}</span>
-            <span className="text-sm font-normal text-gray-500">
-              {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
-            </span>
+            <div>
+              <span>Citas para {formatDateForDisplay(selectedDate)}</span>
+              <div className="text-sm font-normal text-gray-500 mt-1">
+                {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
+                {syncStatus.pending > 0 && (
+                  <span className="ml-2 text-orange-600">
+                    • {syncStatus.pending} cambio{syncStatus.pending !== 1 ? 's' : ''} pendiente{syncStatus.pending !== 1 ? 's' : ''} de sincronizar
+                  </span>
+                )}
+              </div>
+            </div>
+            {syncStatus.pending > 0 && (
+              <Button
+                onClick={syncAllToSheets}
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Sincronizar con Google Sheets
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
