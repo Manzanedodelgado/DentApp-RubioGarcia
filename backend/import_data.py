@@ -159,16 +159,16 @@ async def import_appointments():
     # Process each row from Google Sheets
     for row_data in appointments_data:
         try:
-            # Extract data from specified columns
+            # Extract data from specified columns (based on actual Google Sheets headers)
             fecha = row_data.get('Fecha', '').strip()  # Column H
             hora = row_data.get('Hora', '').strip()   # Column I  
             apellidos = row_data.get('Apellidos', '').strip()  # Column F
             nombre = row_data.get('Nombre', '').strip()  # Column E
             numpac = row_data.get('NumPac', '').strip()  # Column D
             tel_movil = row_data.get('TelMovil', '').strip()  # Column G
-            doctor = row_data.get('Doctor', '').strip()  # Column L
+            doctor = row_data.get('Doctor', '').strip()  # Column L (may not exist in current sheet)
             tratamiento = row_data.get('Tratamiento', '').strip()  # Column K
-            estado = row_data.get('Estado', '').strip()  # Column J
+            estado = row_data.get('EstadoCita', '').strip()  # Column J (actual header is 'EstadoCita')
             
             # Create full name (Nombre + Apellidos)
             full_name = f"{nombre} {apellidos}".strip()
