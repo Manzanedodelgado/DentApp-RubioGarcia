@@ -1714,6 +1714,207 @@ class OmniDeskAPITester:
         
         return True
 
+    def test_urgent_july_27_2025_investigation(self):
+        """🚨 URGENT: Test July 27, 2025 appointments and investigate 4-month limitation"""
+        print("\n" + "="*70)
+        print("🚨 URGENT: JULY 27, 2025 APPOINTMENTS INVESTIGATION")
+        print("="*70)
+        print("USER ISSUE: User asking about July 27, 2025 but system only shows 4 months (Jan-Apr 2025)")
+        print("USER FRUSTRATION: 4 hours waiting for fix")
+        print("EXPECTED: Should find appointments for July 27, 2025 if they exist in Google Sheet")
+        
+        # Step 1: Test July 27, 2025 specifically
+        print("\n🎯 Step 1: Testing July 27, 2025 specifically...")
+        success, july_27_appointments = self.run_test(
+            "Get Appointments for July 27, 2025",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": "2025-07-27"}
+        )
+        
+        if success:
+            print(f"   📊 July 27, 2025: Found {len(july_27_appointments)} appointments")
+            if len(july_27_appointments) > 0:
+                print("   ✅ APPOINTMENTS FOUND FOR JULY 27, 2025!")
+                for apt in july_27_appointments[:5]:  # Show first 5
+                    print(f"      - {apt.get('contact_name', 'Unknown')}: {apt.get('title', 'No title')}")
+                    print(f"        Time: {apt.get('date', 'No date')}")
+            else:
+                print("   ❌ NO APPOINTMENTS FOUND FOR JULY 27, 2025")
+        else:
+            print("   ❌ API ERROR when querying July 27, 2025")
+        
+        # Step 2: Check full date range in database
+        print("\n📊 Step 2: Checking FULL date range in database...")
+        success, all_appointments = self.run_test(
+            "Get ALL Appointments (Full Range Check)",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve all appointments")
+            return False
+        
+        print(f"   📊 Total appointments in database: {len(all_appointments)}")
+        
+        # Analyze date range
+        dates = []
+        month_counts = {}
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                date_part = apt_date[:10]  # YYYY-MM-DD
+                month_part = apt_date[:7]  # YYYY-MM
+                dates.append(date_part)
+                month_counts[month_part] = month_counts.get(month_part, 0) + 1
+        
+        if dates:
+            earliest_date = min(dates)
+            latest_date = max(dates)
+            print(f"   📅 ACTUAL DATE RANGE: {earliest_date} to {latest_date}")
+            
+            # Check if we have July 2025 data
+            july_2025_count = month_counts.get('2025-07', 0)
+            print(f"   📅 July 2025 appointments: {july_2025_count}")
+            
+            # Show month breakdown
+            print(f"   📊 MONTH BREAKDOWN:")
+            for month in sorted(month_counts.keys()):
+                print(f"      {month}: {month_counts[month]} appointments")
+            
+            # Check if limited to 4 months
+            months_with_data = len(month_counts)
+            print(f"   📊 Total months with data: {months_with_data}")
+            
+            if months_with_data <= 4:
+                print("   ⚠️ CONFIRMED: Only 4 months of data found - matches user complaint")
+            else:
+                print(f"   ✅ Found {months_with_data} months of data - more than 4 months")
+        
+        # Step 3: Test other July dates
+        print("\n🗓️ Step 3: Testing other July 2025 dates...")
+        july_test_dates = ["2025-07-01", "2025-07-15", "2025-07-30"]
+        july_appointments_found = 0
+        
+        for test_date in july_test_dates:
+            success, date_appointments = self.run_test(
+                f"Test July Date {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success:
+                count = len(date_appointments)
+                print(f"   📅 {test_date}: {count} appointments")
+                if count > 0:
+                    july_appointments_found += count
+                    # Show sample appointments
+                    for apt in date_appointments[:2]:
+                        print(f"      - {apt.get('contact_name', 'Unknown')}: {apt.get('title', 'No title')}")
+            else:
+                print(f"   ❌ {test_date}: API error")
+        
+        # Step 4: Check Google Sheets import scope
+        print("\n📥 Step 4: Checking Google Sheets import scope...")
+        
+        # Trigger fresh sync to see what gets imported
+        success, sync_response = self.run_test(
+            "Fresh Sync to Check Import Scope",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if success:
+            print(f"   ✅ Sync completed: {sync_response.get('message', 'No message')}")
+        else:
+            print("   ❌ Sync failed")
+        
+        # Check if sync changed the date range
+        success, updated_appointments = self.run_test(
+            "Get Appointments After Sync",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if success:
+            updated_dates = []
+            for apt in updated_appointments:
+                apt_date = apt.get('date', '')
+                if apt_date:
+                    updated_dates.append(apt_date[:10])
+            
+            if updated_dates:
+                new_earliest = min(updated_dates)
+                new_latest = max(updated_dates)
+                print(f"   📅 Date range after sync: {new_earliest} to {new_latest}")
+                
+                # Check if July data appeared after sync
+                july_after_sync = len([d for d in updated_dates if d.startswith('2025-07')])
+                print(f"   📅 July 2025 appointments after sync: {july_after_sync}")
+        
+        # Step 5: Analyze import logic for date filtering
+        print("\n🔍 Step 5: Analyzing import logic for date filtering...")
+        
+        # Check for fallback vs real data
+        fallback_names = [
+            "Benita Posado Jañez", "Natalia Gonzalez Diez", "Angeles Salvador Fernandez",
+            "Rehan Nisar", "Samuel Prieto Serrano", "Eloy Perez Gonzalez"
+        ]
+        
+        appointment_names = [apt.get('contact_name', '') for apt in all_appointments]
+        fallback_matches = [name for name in appointment_names if name in fallback_names]
+        fallback_percentage = len(fallback_matches) / len(appointment_names) if appointment_names else 0
+        
+        if fallback_percentage > 0.5:
+            print(f"   ⚠️ USING FALLBACK DATA: {fallback_percentage:.1%} of names match fallback data")
+            print("   📋 Fallback data only contains January 2025 appointments")
+            print("   🚨 This explains why no July 2025 appointments are found")
+        else:
+            print(f"   ✅ USING REAL DATA: Only {fallback_percentage:.1%} fallback names detected")
+            print("   📋 Real Google Sheets data should contain full year if available")
+        
+        # Step 6: Final diagnosis and recommendations
+        print("\n" + "="*70)
+        print("🔍 JULY 27, 2025 INVESTIGATION SUMMARY")
+        print("="*70)
+        
+        # Determine root cause
+        has_july_appointments = july_appointments_found > 0
+        using_fallback_data = fallback_percentage > 0.5
+        limited_to_4_months = len(month_counts) <= 4
+        
+        print(f"📊 July 27, 2025 appointments found: {len(july_27_appointments) if 'july_27_appointments' in locals() else 0}")
+        print(f"📊 Total July 2025 appointments: {july_appointments_found}")
+        print(f"📊 Using fallback data: {'Yes' if using_fallback_data else 'No'}")
+        print(f"📊 Limited to 4 months: {'Yes' if limited_to_4_months else 'No'}")
+        print(f"📊 Total months with data: {len(month_counts)}")
+        
+        if has_july_appointments:
+            print("✅ SOLUTION: July 27, 2025 appointments ARE available in the system")
+            print("   🎯 Frontend calendar should be able to navigate to July 2025")
+            return True
+        elif using_fallback_data:
+            print("❌ ROOT CAUSE: System is using fallback data (only January 2025)")
+            print("   🚨 Google Sheets API is not working - need to fix API access")
+            print("   🎯 URGENT ACTION: Fix Google Sheets integration to access real data")
+            return False
+        elif limited_to_4_months:
+            print("❌ ROOT CAUSE: Import is limited to 4 months of data")
+            print("   🚨 Google Sheets may not contain July 2025 data")
+            print("   🎯 URGENT ACTION: Check Google Sheets for July 2025 data")
+            return False
+        else:
+            print("❌ ROOT CAUSE: Unknown - July data should be available but isn't")
+            print("   🚨 Need deeper investigation of import logic")
+            return False
+
     def run_all_tests(self):
         """Run all API tests with focus on counting exact Google Sheet rows"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
