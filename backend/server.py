@@ -1948,7 +1948,7 @@ async def process_automation_rule(rule: dict):
         logger.error(f"Error processing automation rule {rule.get('name', 'Unknown')}: {str(e)}")
 
 async def process_appointment_reminders(rule: dict, current_time: datetime):
-    """Send appointment reminders for next day"""
+    """Send appointment reminders for next day via WhatsApp"""
     try:
         # Calculate tomorrow's date range
         tomorrow = current_time + timedelta(days=1)
@@ -1966,49 +1966,64 @@ async def process_appointment_reminders(rule: dict, current_time: datetime):
         
         appointments = await db.appointments.find(filter_query).to_list(1000)
         
-        # Get template
-        template = await db.message_templates.find_one({"name": "Recordatorio Cita"})
-        if not template:
-            return
-        
         sent_count = 0
         for appointment in appointments:
             if appointment.get("phone"):
-                # Personalize message
-                personalized_message = template["content"]
-                personalized_message = personalized_message.replace("{nombre}", appointment.get("contact_name", ""))
-                personalized_message = personalized_message.replace("{fecha}", tomorrow.strftime("%d de %B de %Y"))
-                personalized_message = personalized_message.replace("{hora}", appointment.get("time", ""))
-                personalized_message = personalized_message.replace("{doctor}", appointment.get("doctor", ""))
-                personalized_message = personalized_message.replace("{tratamiento}", appointment.get("treatment", ""))
-                
-                # Create message record
-                message = {
-                    "id": str(uuid.uuid4()),
-                    "contact_id": appointment.get("contact_id"),
-                    "message": personalized_message,
-                    "type": "outbound",
-                    "timestamp": current_time.isoformat(),
-                    "status": "sent",
-                    "ai_generated": False,
-                    "automated": True
-                }
-                
-                await db.messages.insert_one(message)
-                
-                # Mark appointment as reminded
-                await db.appointments.update_one(
-                    {"id": appointment["id"]},
-                    {"$set": {"reminder_sent": True, "updated_at": current_time.isoformat()}}
-                )
-                
-                sent_count += 1
+                try:
+                    # Send WhatsApp reminder
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "http://localhost:3001/send-reminder",
+                            json={
+                                "phone_number": appointment["phone"],
+                                "appointment_data": {
+                                    "contact_name": appointment.get("contact_name", ""),
+                                    "date": appointment.get("date", ""),
+                                    "time": appointment.get("time", ""),
+                                    "doctor": appointment.get("doctor", ""),
+                                    "treatment": appointment.get("treatment", "")
+                                }
+                            },
+                            timeout=10.0
+                        )
+                    
+                    if response.status_code == 200:
+                        # Create message record
+                        message = {
+                            "id": str(uuid.uuid4()),
+                            "contact_id": appointment.get("contact_id"),
+                            "message": f"Recordatorio WhatsApp enviado para cita del {tomorrow.strftime('%d/%m/%Y')}",
+                            "type": "outbound",
+                            "timestamp": current_time.isoformat(),
+                            "status": "sent",
+                            "ai_generated": False,
+                            "automated": True,
+                            "platform": "whatsapp"
+                        }
+                        
+                        await db.messages.insert_one(message)
+                        
+                        # Mark appointment as reminded
+                        await db.appointments.update_one(
+                            {"id": appointment["id"]},
+                            {"$set": {
+                                "reminder_sent": True, 
+                                "whatsapp_reminder_sent": True,
+                                "updated_at": current_time.isoformat()
+                            }}
+                        )
+                        
+                        sent_count += 1
+                        logger.info(f"✅ WhatsApp reminder sent to {appointment.get('contact_name')}")
+                        
+                except Exception as e:
+                    logger.error(f"Error sending WhatsApp reminder to {appointment.get('contact_name')}: {str(e)}")
         
         if sent_count > 0:
-            logger.info(f"✅ Sent {sent_count} automatic appointment reminders")
+            logger.info(f"✅ Sent {sent_count} automatic WhatsApp appointment reminders")
         
     except Exception as e:
-        logger.error(f"Error in appointment reminders: {str(e)}")
+        logger.error(f"Error in WhatsApp appointment reminders: {str(e)}")
 
 async def process_surgery_reminders(rule: dict, current_time: datetime):
     """Send surgery consent reminders for next day"""
