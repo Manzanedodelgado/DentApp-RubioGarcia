@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
 import axios from "axios";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Calendar, MessageCircle, Users, BarChart3, Settings, Plus, Phone, Mail, MessageSquare, Clock, CheckCircle, XCircle, Search, Filter, Tag, Menu, X, Bot, Brain, Smartphone, Monitor, Zap } from "lucide-react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Calendar, MessageCircle, Users, BarChart3, Settings, Plus, Phone, Mail, MessageSquare, Clock, CheckCircle, XCircle, Search, Filter, Tag, Menu, X, Bot, Brain, Smartphone, Monitor, Zap, Eye, EyeOff } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -13,6 +13,224 @@ import { Label } from "./components/ui/label";
 import { Textarea } from "./components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { toast, Toaster } from "sonner";
+
+// Authentication Context
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
+
+// Login Component
+const Login = ({ onLogin }) => {
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!credentials.username || !credentials.password) {
+      toast.error("Por favor ingresa usuario y contraseña");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API}/auth/login`, credentials);
+      
+      if (response.data.success) {
+        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('user_data', JSON.stringify(response.data.user));
+        onLogin(response.data.user, response.data.token);
+        toast.success("Bienvenido al sistema");
+      } else {
+        toast.error(response.data.message || "Credenciales incorrectas");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("Error de conexión. Intenta nuevamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card className="shadow-xl">
+          <CardHeader className="text-center pb-8">
+            {/* Logo */}
+            <div className="mb-6">
+              <img 
+                src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/tckikfmy_Logo%20blanco.jpeg"
+                alt="Rubio García Dental"
+                className="w-16 h-16 mx-auto rounded-xl bg-blue-600 p-3"
+              />
+            </div>
+            
+            <CardTitle className="text-2xl font-bold text-gray-900">
+              RUBIO GARCÍA DENTAL
+            </CardTitle>
+            <CardDescription className="text-gray-600 mt-2">
+              Sistema de Gestión Dental
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                  Usuario
+                </Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={credentials.username}
+                  onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                  placeholder="Ingresa tu usuario"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={loading}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Contraseña
+                </Label>
+                <div className="relative mt-1">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={credentials.password}
+                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                    placeholder="Ingresa tu contraseña"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Iniciando sesión...</span>
+                  </div>
+                ) : (
+                  "Iniciar Sesión"
+                )}
+              </Button>
+            </form>
+            
+            <div className="mt-6 text-center text-xs text-gray-500">
+              <p>Sistema seguro para la gestión de pacientes y citas</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Auth Provider Component  
+const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check for existing session on app start
+  useEffect(() => {
+    const checkAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('user_data');
+
+      if (storedToken && storedUser) {
+        try {
+          // Verify token is still valid
+          const response = await axios.get(`${API}/auth/verify?token=${storedToken}`);
+          
+          if (response.data.valid) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          } else {
+            // Token expired or invalid
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+          }
+        } catch (error) {
+          console.error("Auth verification error:", error);
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = (userData, userToken) => {
+    setUser(userData);
+    setToken(userToken);
+  };
+
+  const logout = async () => {
+    try {
+      if (token) {
+        await axios.post(`${API}/auth/logout`, { token });
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      setUser(null);
+      setToken(null);
+    }
+  };
+
+  const value = {
+    user,
+    token,
+    login,
+    logout,
+    isAuthenticated: !!user && !!token
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
