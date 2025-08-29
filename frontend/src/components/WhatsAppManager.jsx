@@ -157,7 +157,7 @@ const WhatsAppManager = () => {
           </div>
           
           <div className="flex justify-center mb-4">
-            <QRCode 
+            <QRCodeSVG 
               value={qrCode} 
               size={256}
               bgColor="#FFFFFF"
