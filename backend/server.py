@@ -101,6 +101,12 @@ class Appointment(BaseModel):
     duration_minutes: int = 60
     status: AppointmentStatus = AppointmentStatus.SCHEDULED
     reminder_sent: bool = False
+    # Extended fields from Google Sheets import
+    patient_number: Optional[str] = None
+    phone: Optional[str] = None
+    doctor: Optional[str] = None
+    treatment: Optional[str] = None
+    time: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
