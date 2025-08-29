@@ -695,6 +695,110 @@ async def get_available_tags():
     tags = await db.contacts.aggregate(pipeline).to_list(1000)
     return [{"name": tag["_id"], "count": tag["count"]} for tag in tags]
 
+# Communication Routes
+@api_router.post("/communications/send-message")
+async def send_message(message_data: dict):
+    """Send message to patient (placeholder for WhatsApp integration)"""
+    try:
+        # Create message record
+        message = {
+            "id": str(uuid.uuid4()),
+            "contact_id": message_data.get("contact_id"),
+            "message": message_data.get("message"),
+            "type": "outbound",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": "sent",
+            "ai_generated": False
+        }
+        
+        # Store message (you would integrate with WhatsApp API here)
+        await db.messages.insert_one(message)
+        
+        return {"message": "Message sent successfully", "message_id": message["id"]}
+    except Exception as e:
+        logger.error(f"Error sending message: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending message")
+
+@api_router.post("/communications/bulk-reminders")
+async def send_bulk_reminders(reminder_data: dict):
+    """Send bulk appointment reminders"""
+    try:
+        template = reminder_data.get("template", "")
+        target_date = reminder_data.get("target_date", "")
+        
+        if not template or not target_date:
+            raise HTTPException(status_code=400, detail="Template and target_date are required")
+        
+        # Get appointments for target date
+        target_datetime = datetime.fromisoformat(target_date).replace(tzinfo=timezone.utc)
+        start_of_day = target_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = target_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        filter_query = {
+            "date": {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            }
+        }
+        
+        appointments = await db.appointments.find(filter_query).to_list(1000)
+        
+        sent_count = 0
+        for appointment in appointments:
+            if appointment.get("phone"):
+                # Personalize message
+                personalized_message = template.replace("{nombre}", appointment.get("contact_name", ""))
+                personalized_message = personalized_message.replace("{fecha}", target_date)
+                personalized_message = personalized_message.replace("{hora}", appointment.get("time", ""))
+                personalized_message = personalized_message.replace("{doctor}", appointment.get("doctor", ""))
+                personalized_message = personalized_message.replace("{tratamiento}", appointment.get("treatment", ""))
+                
+                # Create message record
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": appointment.get("contact_id"),
+                    "message": personalized_message,
+                    "type": "outbound",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "sent",
+                    "ai_generated": False
+                }
+                
+                await db.messages.insert_one(message)
+                sent_count += 1
+        
+        return {"message": f"Bulk reminders sent to {sent_count} patients"}
+        
+    except Exception as e:
+        logger.error(f"Error sending bulk reminders: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending bulk reminders")
+
+@api_router.get("/communications/messages/{contact_id}")
+async def get_contact_messages(contact_id: str):
+    """Get message history for a specific contact"""
+    try:
+        messages = await db.messages.find(
+            {"contact_id": contact_id}
+        ).sort("timestamp", 1).to_list(100)
+        
+        return [parse_from_mongo(message) for message in messages]
+    except Exception as e:
+        logger.error(f"Error fetching messages: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching messages")
+
+@api_router.get("/communications/patient-history/{contact_id}")
+async def get_patient_history(contact_id: str):
+    """Get appointment history for a patient"""
+    try:
+        appointments = await db.appointments.find(
+            {"contact_id": contact_id}
+        ).sort("date", -1).to_list(20)  # Last 20 appointments
+        
+        return [Appointment(**parse_from_mongo(appointment)) for appointment in appointments]
+    except Exception as e:
+        logger.error(f"Error fetching patient history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching patient history")
+
 # Appointment Sync Routes
 @api_router.post("/appointments/sync")
 async def sync_appointments():
