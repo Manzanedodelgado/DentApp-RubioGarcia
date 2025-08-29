@@ -795,7 +795,9 @@ const Agenda = () => {
     
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
-    const firstDayWeekday = firstDayOfMonth.getDay();
+    
+    // Convert Sunday=0 based getDay() to Monday=0 based for our calendar
+    const firstDayWeekday = (firstDayOfMonth.getDay() + 6) % 7;
     
     const days = [];
     
