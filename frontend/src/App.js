@@ -1252,7 +1252,435 @@ const Agenda = () => {
   );
 };
 
-// Reminders Component - Dedicated reminders section with CSV import
+// Templates Component - CRUD management for message templates
+const Templates = () => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [formData, setFormData] = useState({ name: '', content: '' });
+
+  // Available variables for templates
+  const availableVariables = [
+    { name: 'nombre', description: 'Nombre completo del paciente', example: 'Juan Pérez' },
+    { name: 'fecha', description: 'Fecha de la cita', example: '15 de enero de 2025' },
+    { name: 'hora', description: 'Hora de la cita', example: '10:30' },
+    { name: 'doctor', description: 'Nombre del doctor asignado', example: 'Dr. Mario Rubio' },
+    { name: 'tratamiento', description: 'Tipo de tratamiento', example: 'Revisión' },
+    { name: 'telefono', description: 'Teléfono del paciente', example: '+34 666 555 444' },
+    { name: 'numpac', description: 'Número de paciente', example: '12345' }
+  ];
+
+  // Fetch templates from backend
+  const fetchTemplates = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/templates`);
+      setTemplates(response.data);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      toast.error("Error cargando plantillas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create new template
+  const handleCreate = async () => {
+    if (!formData.name.trim() || !formData.content.trim()) {
+      toast.error("Nombre y contenido son obligatorios");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.post(`${API}/templates`, formData);
+      toast.success("Plantilla creada exitosamente");
+      setShowCreateDialog(false);
+      setFormData({ name: '', content: '' });
+      fetchTemplates();
+    } catch (error) {
+      console.error("Error creating template:", error);
+      toast.error("Error creando plantilla");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update existing template
+  const handleUpdate = async () => {
+    if (!formData.name.trim() || !formData.content.trim()) {
+      toast.error("Nombre y contenido son obligatorios");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.put(`${API}/templates/${selectedTemplate.id}`, formData);
+      toast.success("Plantilla actualizada exitosamente");
+      setShowEditDialog(false);
+      setSelectedTemplate(null);
+      setFormData({ name: '', content: '' });
+      fetchTemplates();
+    } catch (error) {
+      console.error("Error updating template:", error);
+      toast.error("Error actualizando plantilla");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete template
+  const handleDelete = async () => {
+    setLoading(true);
+    try {
+      await axios.delete(`${API}/templates/${selectedTemplate.id}`);
+      toast.success("Plantilla eliminada exitosamente");
+      setShowDeleteDialog(false);
+      setSelectedTemplate(null);
+      fetchTemplates();
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast.error("Error eliminando plantilla");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open edit dialog
+  const openEditDialog = (template) => {
+    setSelectedTemplate(template);
+    setFormData({ name: template.name, content: template.content });
+    setShowEditDialog(true);
+  };
+
+  // Open delete dialog
+  const openDeleteDialog = (template) => {
+    setSelectedTemplate(template);
+    setShowDeleteDialog(true);
+  };
+
+  // Insert variable into content
+  const insertVariable = (variable) => {
+    const newContent = formData.content + `{${variable.name}}`;
+    setFormData({ ...formData, content: newContent });
+  };
+
+  // Preview template with sample data
+  const previewTemplate = (content) => {
+    return content
+      .replace(/{nombre}/g, 'Juan Pérez')
+      .replace(/{fecha}/g, '15 de enero de 2025')
+      .replace(/{hora}/g, '10:30')
+      .replace(/{doctor}/g, 'Dr. Mario Rubio')
+      .replace(/{tratamiento}/g, 'Revisión')
+      .replace(/{telefono}/g, '+34 666 555 444')
+      .replace(/{numpac}/g, '12345');
+  };
+
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Gestión de Plantillas</h1>
+          <p className="text-gray-600 mt-2">Crea y administra plantillas de mensajes para recordatorios</p>
+        </div>
+        <Button 
+          onClick={() => setShowCreateDialog(true)}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Plantilla
+        </Button>
+      </div>
+
+      {/* Available Variables Reference */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Variables Disponibles</CardTitle>
+          <CardDescription>
+            Usa estas variables en tus plantillas para personalizar los mensajes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableVariables.map(variable => (
+              <div key={variable.name} className="p-3 border rounded-lg bg-gray-50">
+                <div className="flex items-center space-x-2 mb-2">
+                  <code className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                    {`{${variable.name}}`}
+                  </code>
+                </div>
+                <p className="text-sm text-gray-600 mb-1">{variable.description}</p>
+                <p className="text-xs text-gray-500">Ejemplo: {variable.example}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Templates List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Plantillas Creadas ({templates.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Cargando plantillas...</p>
+            </div>
+          ) : templates.length > 0 ? (
+            <div className="space-y-4">
+              {templates.map(template => (
+                <div key={template.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {template.name}
+                      </h3>
+                      
+                      {/* Original Content */}
+                      <div className="mb-3">
+                        <Label className="text-sm font-medium text-gray-700">Plantilla:</Label>
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 font-mono">
+                          {template.content}
+                        </p>
+                      </div>
+                      
+                      {/* Preview */}
+                      <div className="mb-3">
+                        <Label className="text-sm font-medium text-gray-700">Vista previa:</Label>
+                        <p className="text-sm text-gray-800 bg-blue-50 p-2 rounded mt-1">
+                          {previewTemplate(template.content)}
+                        </p>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500">
+                        Creada: {new Date(template.created_at).toLocaleDateString('es-ES')}
+                      </p>
+                    </div>
+                    
+                    <div className="flex space-x-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(template)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDeleteDialog(template)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <Tag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No hay plantillas</h3>
+              <p>Crea tu primera plantilla para empezar a enviar recordatorios personalizados.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Template Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Plantilla</DialogTitle>
+            <DialogDescription>
+              Crea una plantilla personalizada para tus mensajes de recordatorio
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Template Name */}
+            <div>
+              <Label htmlFor="name">Nombre de la Plantilla</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Ej: Recordatorio Cita Urgente"
+              />
+            </div>
+
+            {/* Quick Insert Variables */}
+            <div>
+              <Label className="text-sm font-medium">Insertar Variables Rápidas:</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {availableVariables.map(variable => (
+                  <Button
+                    key={variable.name}
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => insertVariable(variable)}
+                    className="text-xs"
+                  >
+                    {`{${variable.name}}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Template Content */}
+            <div>
+              <Label htmlFor="content">Contenido de la Plantilla</Label>
+              <Textarea
+                id="content"
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                placeholder="Hola {nombre}, te recordamos tu cita el {fecha} a las {hora}..."
+                className="h-32"
+              />
+            </div>
+
+            {/* Preview */}
+            {formData.content && (
+              <div>
+                <Label className="text-sm font-medium">Vista Previa:</Label>
+                <div className="p-3 bg-blue-50 rounded-lg mt-2">
+                  <p className="text-sm text-gray-800">
+                    {previewTemplate(formData.content)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreate} disabled={loading}>
+              {loading ? 'Creando...' : 'Crear Plantilla'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Template Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Plantilla</DialogTitle>
+            <DialogDescription>
+              Modifica la plantilla existente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Template Name */}
+            <div>
+              <Label htmlFor="edit-name">Nombre de la Plantilla</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Ej: Recordatorio Cita Urgente"
+              />
+            </div>
+
+            {/* Quick Insert Variables */}
+            <div>
+              <Label className="text-sm font-medium">Insertar Variables Rápidas:</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {availableVariables.map(variable => (
+                  <Button
+                    key={variable.name}
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => insertVariable(variable)}
+                    className="text-xs"
+                  >
+                    {`{${variable.name}}`}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Template Content */}
+            <div>
+              <Label htmlFor="edit-content">Contenido de la Plantilla</Label>
+              <Textarea
+                id="edit-content"
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                placeholder="Hola {nombre}, te recordamos tu cita el {fecha} a las {hora}..."
+                className="h-32"
+              />
+            </div>
+
+            {/* Preview */}
+            {formData.content && (
+              <div>
+                <Label className="text-sm font-medium">Vista Previa:</Label>
+                <div className="p-3 bg-blue-50 rounded-lg mt-2">
+                  <p className="text-sm text-gray-800">
+                    {previewTemplate(formData.content)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdate} disabled={loading}>
+              {loading ? 'Actualizando...' : 'Actualizar Plantilla'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar Plantilla</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que quieres eliminar la plantilla "{selectedTemplate?.name}"? 
+              Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleDelete} 
+              disabled={loading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {loading ? 'Eliminando...' : 'Eliminar Plantilla'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 const Reminders = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
