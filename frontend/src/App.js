@@ -2282,50 +2282,68 @@ const Reminders = () => {
   );
 };
 
-// Settings Component - Advanced Configuration with AI Capabilities
+// Settings Component - Complete Configuration System
 const SettingsPage = () => {
-  const [activeConfigTab, setActiveConfigTab] = useState("ai");
-  const [settings, setSettings] = useState({
-    ai: {
-      model: "gpt-4",
-      temperature: 0.7,
-      maxTokens: 150,
-      systemPrompt: "Eres un asistente virtual especializado en consultas médicas dentales. Responde de manera profesional, empática y precisa.",
-      autoResponse: true,
-      responseDelay: 2,
-      learningMode: true
-    },
-    integrations: {
-      whatsappToken: "",
-      emergentLlmKey: "sk-emergent-52b94292a251724D2D",
-      googleSheetsApiKey: "AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A",
-      enableWebhooks: false,
-      webhookUrl: ""
-    },
-    system: {
-      autoSync: true,
-      syncInterval: 5,
-      backupEnabled: true,
-      maintenanceMode: false,
-      debugMode: false,
-      logLevel: "info"
-    },
-    communications: {
-      defaultTemplate: "",
-      autoConfirmation: true,
-      businessHours: {
-        start: "09:00",
-        end: "18:00",
-        timezone: "Europe/Madrid"
-      },
-      enableNotifications: true
-    }
-  });
-  
+  const [activeConfigTab, setActiveConfigTab] = useState("clinic");
+  const [clinicSettings, setClinicSettings] = useState(null);
+  const [aiSettings, setAiSettings] = useState(null);
+  const [automationRules, setAutomationRules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [testingAI, setTestingAI] = useState(false);
-  const [testMessage, setTestMessage] = useState("");
-  const [aiResponse, setAiResponse] = useState("");
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceResponse, setVoiceResponse] = useState("");
+  
+  // Voice recognition
+  const [recognition, setRecognition] = useState(null);
+  
+  // Initialize voice recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = 'es-ES';
+      
+      recognitionInstance.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        handleVoiceCommand(transcript);
+      };
+      
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+      
+      setRecognition(recognitionInstance);
+      setVoiceEnabled(true);
+    }
+  }, []);
+  
+  // Fetch settings on component mount
+  useEffect(() => {
+    fetchAllSettings();
+  }, []);
+  
+  const fetchAllSettings = async () => {
+    setLoading(true);
+    try {
+      const [clinicRes, aiRes, automationRes] = await Promise.all([
+        axios.get(`${API}/settings/clinic`),
+        axios.get(`${API}/settings/ai`),
+        axios.get(`${API}/settings/automations`)
+      ]);
+      
+      setClinicSettings(clinicRes.data);
+      setAiSettings(aiRes.data);
+      setAutomationRules(automationRes.data);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      toast.error("Error loading settings");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Available AI models
   const aiModels = [
