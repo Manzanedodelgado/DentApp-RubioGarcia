@@ -2347,23 +2347,83 @@ const SettingsPage = () => {
 
   // Available AI models
   const aiModels = [
-    { value: "gpt-4", label: "GPT-4 (Recomendado)", description: "Modelo más avanzado, mejor comprensión contextual" },
-    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", description: "Rápido y eficiente para respuestas básicas" },
-    { value: "claude-3", label: "Claude 3", description: "Excelente para conversaciones médicas" },
-    { value: "gemini-pro", label: "Gemini Pro", description: "Modelo de Google con capacidades avanzadas" }
+    { value: "gpt-4o-mini", label: "GPT-4o Mini (Recomendado)", description: "Rápido y eficiente, ideal para uso general" },
+    { value: "gpt-4o", label: "GPT-4o", description: "Modelo más avanzado de OpenAI" },
+    { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet", description: "Excelente para conversaciones médicas" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Modelo de Google con capacidades avanzadas" }
   ];
+  
+  const modelProviders = {
+    "gpt-4o-mini": "openai",
+    "gpt-4o": "openai",
+    "claude-3-7-sonnet-20250219": "anthropic",
+    "gemini-2.0-flash": "gemini"
+  };
 
-  // Save settings
-  const saveSettings = async (category) => {
+  // Save clinic settings
+  const saveClinicSettings = async () => {
     setLoading(true);
     try {
-      await axios.post(`${API}/settings/${category}`, settings[category]);
-      toast.success(`Configuración de ${category} guardada exitosamente`);
+      await axios.put(`${API}/settings/clinic`, clinicSettings);
+      toast.success("Configuración de clínica guardada");
     } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("Error guardando configuración");
+      console.error("Error saving clinic settings:", error);
+      toast.error("Error guardando configuración de clínica");
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Save AI settings
+  const saveAiSettings = async () => {
+    setLoading(true);
+    try {
+      await axios.put(`${API}/settings/ai`, aiSettings);
+      toast.success("Configuración de IA guardada");
+    } catch (error) {
+      console.error("Error saving AI settings:", error);
+      toast.error("Error guardando configuración de IA");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Voice command handler
+  const handleVoiceCommand = async (transcript) => {
+    setVoiceResponse("Procesando comando...");
+    try {
+      const response = await axios.post(`${API}/ai/voice-assistant`, {
+        message: transcript,
+        session_id: "settings_voice"
+      });
+      
+      setVoiceResponse(response.data.response);
+      
+      // Handle specific actions
+      if (response.data.action_type) {
+        toast.success(`Comando detectado: ${response.data.action_type}`);
+      }
+      
+    } catch (error) {
+      console.error("Error processing voice command:", error);
+      setVoiceResponse("Error procesando comando de voz");
+    }
+  };
+  
+  // Start voice recognition
+  const startListening = () => {
+    if (recognition && !isListening) {
+      setIsListening(true);
+      setVoiceResponse("Escuchando...");
+      recognition.start();
+    }
+  };
+  
+  // Stop voice recognition
+  const stopListening = () => {
+    if (recognition && isListening) {
+      recognition.stop();
+      setIsListening(false);
     }
   };
 
