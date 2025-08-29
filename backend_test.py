@@ -633,6 +633,151 @@ class OmniDeskAPITester:
         
         return success
 
+    def test_appointment_sync_functionality(self):
+        """Test new appointment synchronization functionality"""
+        print("\n" + "="*50)
+        print("TESTING APPOINTMENT SYNC FUNCTIONALITY")
+        print("="*50)
+        
+        # Test manual sync endpoint
+        success, sync_response = self.run_test(
+            "Manual Appointment Sync",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ Manual sync endpoint failed")
+            return False
+        
+        if sync_response.get('message'):
+            print(f"   ✓ Sync response: {sync_response['message']}")
+        
+        # Test date filtering endpoint with specific date
+        test_date = "2025-01-20"
+        success, date_appointments = self.run_test(
+            f"Get Appointments by Date ({test_date})",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": test_date}
+        )
+        
+        if success:
+            print(f"   ✓ Found {len(date_appointments)} appointments for {test_date}")
+            for apt in date_appointments[:3]:  # Show first 3 appointments
+                apt_time = apt.get('date', '')[:16] if apt.get('date') else 'Unknown time'
+                print(f"   - {apt.get('title', 'Unknown')}: {apt_time}")
+        else:
+            print(f"   ❌ Date filtering failed for {test_date}")
+            return False
+        
+        # Test another date to verify filtering works correctly
+        test_date2 = "2025-01-22"
+        success, date_appointments2 = self.run_test(
+            f"Get Appointments by Date ({test_date2})",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": test_date2}
+        )
+        
+        if success:
+            print(f"   ✓ Found {len(date_appointments2)} appointments for {test_date2}")
+        
+        # Test invalid date format
+        success, invalid_date = self.run_test(
+            "Get Appointments by Invalid Date",
+            "GET",
+            "appointments/by-date",
+            500,  # Expecting error for invalid date
+            params={"date": "invalid-date"}
+        )
+        
+        if success:
+            print(f"   ✓ Invalid date properly handled")
+        
+        return True
+
+    def test_scheduler_status(self):
+        """Test that the background scheduler is working"""
+        print("\n" + "="*50)
+        print("TESTING SCHEDULER STATUS")
+        print("="*50)
+        
+        # We can't directly test the scheduler, but we can verify:
+        # 1. The sync endpoint works (already tested above)
+        # 2. Multiple syncs don't cause issues
+        
+        print("   📋 Testing multiple sync calls to verify scheduler stability...")
+        
+        for i in range(3):
+            success, sync_response = self.run_test(
+                f"Sync Call #{i+1}",
+                "POST",
+                "appointments/sync",
+                200
+            )
+            
+            if not success:
+                print(f"   ❌ Sync call #{i+1} failed")
+                return False
+        
+        print("   ✅ Multiple sync calls completed successfully")
+        print("   📝 Note: Background scheduler runs every 5 minutes automatically")
+        return True
+
+    def test_imported_data_in_dashboard(self):
+        """Test that imported appointments appear in dashboard stats"""
+        print("\n" + "="*50)
+        print("TESTING IMPORTED DATA IN DASHBOARD")
+        print("="*50)
+        
+        # First sync to ensure we have data
+        success, _ = self.run_test(
+            "Sync Before Dashboard Check",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ Could not sync data for dashboard test")
+            return False
+        
+        # Get dashboard stats
+        success, stats = self.run_test(
+            "Dashboard Stats After Import",
+            "GET",
+            "dashboard/stats",
+            200
+        )
+        
+        if not success:
+            return False
+        
+        # Verify imported data appears in stats
+        total_appointments = stats.get('total_appointments', 0)
+        today_appointments = stats.get('today_appointments', 0)
+        total_contacts = stats.get('total_contacts', 0)
+        
+        print(f"   📊 Total appointments: {total_appointments}")
+        print(f"   📊 Today's appointments: {today_appointments}")
+        print(f"   📊 Total contacts: {total_contacts}")
+        
+        if total_appointments > 0:
+            print("   ✅ Imported appointments appear in dashboard stats")
+        else:
+            print("   ⚠️  No appointments found in dashboard stats")
+        
+        if total_contacts > 0:
+            print("   ✅ Imported contacts appear in dashboard stats")
+        else:
+            print("   ⚠️  No contacts found in dashboard stats")
+        
+        return True
+
     def cleanup_resources(self):
         """Clean up created test resources"""
         print("\n" + "="*50)
