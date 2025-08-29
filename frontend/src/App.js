@@ -2283,7 +2283,7 @@ const Reminders = () => {
 };
 
 // Settings Component - Advanced Configuration with AI Capabilities
-const Settings = () => {
+const SettingsPage = () => {
   const [activeConfigTab, setActiveConfigTab] = useState("ai");
   const [settings, setSettings] = useState({
     ai: {
