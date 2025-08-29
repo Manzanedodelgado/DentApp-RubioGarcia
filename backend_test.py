@@ -936,15 +936,255 @@ class OmniDeskAPITester:
         
         return total_appointments > 0
 
+    def test_improved_google_sheets_integration(self):
+        """Test the improved Google Sheets integration with duplicate prevention and better data handling"""
+        print("\n" + "="*70)
+        print("🔍 TESTING IMPROVED GOOGLE SHEETS INTEGRATION")
+        print("="*70)
+        print("Focus: Duplicate prevention, date ordering, contact management, data quality")
+        
+        # Step 1: Test improved sync function
+        print("\n📥 Step 1: Testing improved sync function...")
+        success, sync_response = self.run_test(
+            "Improved Sync Function (POST /api/appointments/sync)",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Improved sync function failed")
+            return False
+        
+        print(f"   ✅ Sync response: {sync_response.get('message', 'No message')}")
+        
+        # Get initial counts
+        success, initial_contacts = self.run_test(
+            "Get Initial Contact Count",
+            "GET",
+            "contacts",
+            200
+        )
+        
+        success, initial_appointments = self.run_test(
+            "Get Initial Appointment Count", 
+            "GET",
+            "appointments",
+            200
+        )
+        
+        initial_contact_count = len(initial_contacts) if initial_contacts else 0
+        initial_appointment_count = len(initial_appointments) if initial_appointments else 0
+        
+        print(f"   📊 Initial counts - Contacts: {initial_contact_count}, Appointments: {initial_appointment_count}")
+        
+        # Step 2: Test duplicate prevention by running sync twice
+        print("\n🔄 Step 2: Testing duplicate prevention (running sync twice)...")
+        
+        success, sync_response2 = self.run_test(
+            "Second Sync Call (Duplicate Prevention Test)",
+            "POST", 
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ Second sync call failed")
+            return False
+        
+        # Check counts after second sync
+        success, second_contacts = self.run_test(
+            "Get Contact Count After Second Sync",
+            "GET",
+            "contacts", 
+            200
+        )
+        
+        success, second_appointments = self.run_test(
+            "Get Appointment Count After Second Sync",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        second_contact_count = len(second_contacts) if second_contacts else 0
+        second_appointment_count = len(second_appointments) if second_appointments else 0
+        
+        print(f"   📊 After second sync - Contacts: {second_contact_count}, Appointments: {second_appointment_count}")
+        
+        # Verify no duplicate contacts were created
+        if second_contact_count == initial_contact_count:
+            print("   ✅ DUPLICATE PREVENTION WORKING: No duplicate contacts created")
+        else:
+            print(f"   ❌ DUPLICATE ISSUE: Contact count changed from {initial_contact_count} to {second_contact_count}")
+            return False
+        
+        # Step 3: Test date ordering from January 1, 2025
+        print("\n📅 Step 3: Testing date ordering from January 1, 2025...")
+        
+        success, all_appointments = self.run_test(
+            "Get All Appointments (Date Ordering Test)",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success or not all_appointments:
+            print("❌ Could not retrieve appointments for date ordering test")
+            return False
+        
+        # Check if appointments are properly ordered by date
+        dates = []
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                dates.append(apt_date[:10])  # Extract date part
+        
+        sorted_dates = sorted(dates)
+        if dates == sorted_dates:
+            print("   ✅ DATE ORDERING CORRECT: Appointments properly ordered by date")
+            if dates:
+                print(f"   📅 Date range: {dates[0]} to {dates[-1]}")
+        else:
+            print("   ❌ DATE ORDERING ISSUE: Appointments not properly ordered")
+            print(f"   Expected: {sorted_dates[:5]}...")
+            print(f"   Actual: {dates[:5]}...")
+        
+        # Verify starting from January 1, 2025
+        january_2025_appointments = [d for d in dates if d.startswith('2025-01')]
+        print(f"   📊 January 2025 appointments found: {len(january_2025_appointments)}")
+        
+        if january_2025_appointments:
+            earliest_date = min(january_2025_appointments)
+            print(f"   📅 Earliest January 2025 appointment: {earliest_date}")
+            if earliest_date >= '2025-01-01':
+                print("   ✅ DATE RANGE CORRECT: Appointments start from January 2025")
+            else:
+                print(f"   ⚠️ Unexpected early date found: {earliest_date}")
+        
+        # Step 4: Test contact management (proper tags, no duplicates)
+        print("\n👥 Step 4: Testing contact management...")
+        
+        # Check for google-sheets tags
+        google_sheets_contacts = [c for c in second_contacts if 'google-sheets' in c.get('tags', [])]
+        print(f"   📊 Contacts with 'google-sheets' tag: {len(google_sheets_contacts)}")
+        
+        if google_sheets_contacts:
+            print("   ✅ CONTACT TAGGING: Contacts properly tagged with 'google-sheets'")
+        else:
+            print("   ⚠️ No contacts found with 'google-sheets' tag")
+        
+        # Check for unique names (no duplicates)
+        contact_names = [c.get('name', '') for c in second_contacts]
+        unique_names = set(contact_names)
+        
+        if len(contact_names) == len(unique_names):
+            print("   ✅ NO DUPLICATE CONTACTS: All contact names are unique")
+        else:
+            duplicates = len(contact_names) - len(unique_names)
+            print(f"   ❌ DUPLICATE CONTACTS FOUND: {duplicates} duplicate names detected")
+        
+        # Verify patient count vs unique names makes sense
+        print(f"   📊 Total contacts: {len(contact_names)}, Unique names: {len(unique_names)}")
+        
+        # Step 5: Test data quality
+        print("\n🔍 Step 5: Testing data quality...")
+        
+        # Check appointments have proper titles, descriptions, dates
+        appointments_with_titles = [a for a in all_appointments if a.get('title')]
+        appointments_with_dates = [a for a in all_appointments if a.get('date')]
+        appointments_with_contact_names = [a for a in all_appointments if a.get('contact_name')]
+        
+        print(f"   📊 Appointments with titles: {len(appointments_with_titles)}/{len(all_appointments)}")
+        print(f"   📊 Appointments with dates: {len(appointments_with_dates)}/{len(all_appointments)}")
+        print(f"   📊 Appointments with contact names: {len(appointments_with_contact_names)}/{len(all_appointments)}")
+        
+        if len(appointments_with_titles) == len(all_appointments):
+            print("   ✅ DATA QUALITY: All appointments have proper titles")
+        else:
+            print("   ⚠️ Some appointments missing titles")
+        
+        if len(appointments_with_dates) == len(all_appointments):
+            print("   ✅ DATA QUALITY: All appointments have proper dates")
+        else:
+            print("   ❌ Some appointments missing dates")
+        
+        # Check appointment status normalization
+        statuses = [a.get('status', '') for a in all_appointments]
+        valid_statuses = ['scheduled', 'confirmed', 'cancelled', 'completed', 'no_show']
+        invalid_statuses = [s for s in statuses if s not in valid_statuses]
+        
+        if not invalid_statuses:
+            print("   ✅ STATUS NORMALIZATION: All appointment statuses are properly normalized")
+        else:
+            print(f"   ⚠️ Found {len(invalid_statuses)} appointments with invalid statuses")
+        
+        # Step 6: Test specific date queries to verify filtering works
+        print("\n🗓️ Step 6: Testing specific date filtering...")
+        
+        test_dates = ["2025-01-20", "2025-01-22", "2025-01-25", "2025-01-29"]
+        working_dates = 0
+        
+        for test_date in test_dates:
+            success, date_appointments = self.run_test(
+                f"Filter by Date {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success:
+                working_dates += 1
+                print(f"   ✅ {test_date}: Found {len(date_appointments)} appointments")
+                
+                # Verify all returned appointments are for the correct date
+                for apt in date_appointments:
+                    apt_date = apt.get('date', '')[:10]
+                    if apt_date != test_date:
+                        print(f"   ❌ Date filtering error: Expected {test_date}, got {apt_date}")
+            else:
+                print(f"   ❌ {test_date}: Date filtering failed")
+        
+        if working_dates == len(test_dates):
+            print("   ✅ DATE FILTERING: All date queries working correctly")
+        else:
+            print(f"   ⚠️ Date filtering issues: {working_dates}/{len(test_dates)} dates working")
+        
+        # Final summary
+        print("\n" + "="*70)
+        print("📋 IMPROVED GOOGLE SHEETS INTEGRATION SUMMARY")
+        print("="*70)
+        
+        success_criteria = [
+            second_contact_count == initial_contact_count,  # No duplicates
+            dates == sorted_dates,  # Proper ordering
+            len(appointments_with_dates) == len(all_appointments),  # Data quality
+            working_dates >= len(test_dates) * 0.75,  # Most date filtering works
+            len(google_sheets_contacts) > 0  # Proper tagging
+        ]
+        
+        passed_criteria = sum(success_criteria)
+        total_criteria = len(success_criteria)
+        
+        print(f"✅ Passed criteria: {passed_criteria}/{total_criteria}")
+        
+        if passed_criteria >= total_criteria * 0.8:  # 80% success rate
+            print("🎉 IMPROVED GOOGLE SHEETS INTEGRATION: WORKING CORRECTLY")
+            return True
+        else:
+            print("❌ IMPROVED GOOGLE SHEETS INTEGRATION: ISSUES DETECTED")
+            return False
+
     def run_all_tests(self):
-        """Run all API tests with focus on urgent date filtering issue"""
+        """Run all API tests with focus on improved Google Sheets integration"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
         
-        # URGENT: Test date filtering issue first
-        print("\n🚨 PRIORITY: URGENT DATE FILTERING INVESTIGATION")
-        if not self.test_urgent_date_filtering_investigation():
-            print("❌ URGENT: Date filtering investigation failed")
+        # PRIORITY: Test improved Google Sheets integration
+        print("\n🎯 PRIORITY: TESTING IMPROVED GOOGLE SHEETS INTEGRATION")
+        if not self.test_improved_google_sheets_integration():
+            print("❌ CRITICAL: Improved Google Sheets integration tests failed")
             return 1
         
         # Test dashboard first
