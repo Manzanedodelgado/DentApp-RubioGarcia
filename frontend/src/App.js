@@ -1764,7 +1764,7 @@ const Reminders = () => {
 
     setLoading(true);
     try {
-      const template = templates.find(t => t.id.toString() === selectedTemplate);
+      const template = templates.find(t => t.id === selectedTemplate);
       const selectedApts = appointments.filter(apt => selectedAppointments.includes(apt.id));
 
       for (const appointment of selectedApts) {
@@ -1774,9 +1774,11 @@ const Reminders = () => {
           .replace(/{fecha}/g, new Date(appointment.date).toLocaleDateString('es-ES'))
           .replace(/{hora}/g, appointment.time || '10:00')
           .replace(/{doctor}/g, appointment.doctor || 'Doctor')
-          .replace(/{tratamiento}/g, appointment.treatment || 'Consulta');
+          .replace(/{tratamiento}/g, appointment.treatment || 'Consulta')
+          .replace(/{telefono}/g, appointment.phone || '')
+          .replace(/{numpac}/g, appointment.patient_number || '');
 
-        // Send message (simulate API call)
+        // Send message
         await axios.post(`${API}/communications/send-message`, {
           contact_id: appointment.contact_id,
           message: personalizedMessage
