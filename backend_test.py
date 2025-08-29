@@ -793,10 +793,159 @@ class OmniDeskAPITester:
                 200
             )
 
+    def test_urgent_date_filtering_investigation(self):
+        """URGENT: Investigate date filtering issue - no appointments visible from Jan 1, 2025"""
+        print("\n" + "="*70)
+        print("🚨 URGENT DATE FILTERING INVESTIGATION")
+        print("="*70)
+        print("Problem: User reports no appointments visible from January 1, 2025 onwards")
+        print("Expected: 11 appointments should be visible")
+        
+        # Step 1: Fresh sync to ensure we have latest data
+        print("\n📥 Step 1: Performing fresh sync...")
+        success, sync_response = self.run_test(
+            "Fresh Appointment Sync",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot sync appointments")
+            return False
+        
+        # Step 2: Get ALL appointments to see what's actually in the database
+        print("\n📊 Step 2: Checking ALL appointments in database...")
+        success, all_appointments = self.run_test(
+            "Get ALL Appointments",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve appointments")
+            return False
+        
+        print(f"\n📋 FOUND {len(all_appointments)} TOTAL APPOINTMENTS IN DATABASE:")
+        print("-" * 80)
+        
+        # Analyze all appointments by date
+        appointments_by_date = {}
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                # Extract just the date part
+                date_part = apt_date[:10] if len(apt_date) >= 10 else apt_date
+                if date_part not in appointments_by_date:
+                    appointments_by_date[date_part] = []
+                appointments_by_date[date_part].append(apt)
+                
+                print(f"📅 {date_part} | {apt.get('contact_name', 'Unknown')} | {apt.get('title', 'No title')}")
+                print(f"    Full datetime: {apt_date}")
+                print(f"    Status: {apt.get('status', 'Unknown')}")
+                print()
+        
+        # Step 3: Test specific date queries that should have appointments
+        print("\n🔍 Step 3: Testing specific date queries...")
+        test_dates = ["2025-01-20", "2025-01-21", "2025-01-22", "2025-01-29"]
+        
+        for test_date in test_dates:
+            print(f"\n🗓️  Testing date: {test_date}")
+            success, date_appointments = self.run_test(
+                f"Get Appointments for {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success:
+                print(f"   ✅ API Response: Found {len(date_appointments)} appointments")
+                for apt in date_appointments:
+                    print(f"   - {apt.get('contact_name', 'Unknown')}: {apt.get('title', 'No title')}")
+                    print(f"     Date stored: {apt.get('date', 'No date')}")
+            else:
+                print(f"   ❌ API Error for date {test_date}")
+        
+        # Step 4: Test current date (January 29, 2025)
+        current_date = "2025-01-29"
+        print(f"\n📅 Step 4: Testing current date ({current_date})...")
+        success, current_appointments = self.run_test(
+            f"Get Appointments for Current Date ({current_date})",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": current_date}
+        )
+        
+        if success:
+            print(f"   Current date has {len(current_appointments)} appointments")
+        
+        # Step 5: Check date format consistency
+        print("\n🔍 Step 5: Analyzing date format issues...")
+        date_formats_found = set()
+        timezone_info = set()
+        
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                date_formats_found.add(apt_date[:19])  # First 19 chars (YYYY-MM-DDTHH:MM:SS)
+                if 'T' in apt_date:
+                    timezone_part = apt_date[19:] if len(apt_date) > 19 else ''
+                    timezone_info.add(timezone_part)
+        
+        print(f"📊 Date formats found: {len(date_formats_found)}")
+        for fmt in sorted(list(date_formats_found)[:5]):  # Show first 5
+            print(f"   - {fmt}")
+        
+        print(f"📊 Timezone formats found: {len(timezone_info)}")
+        for tz in sorted(list(timezone_info)):
+            print(f"   - '{tz}'")
+        
+        # Step 6: Summary and diagnosis
+        print("\n" + "="*70)
+        print("🔍 INVESTIGATION SUMMARY")
+        print("="*70)
+        
+        total_appointments = len(all_appointments)
+        appointments_2025 = len([apt for apt in all_appointments if apt.get('date', '').startswith('2025')])
+        appointments_jan_2025 = len([apt for apt in all_appointments if apt.get('date', '').startswith('2025-01')])
+        
+        print(f"📊 Total appointments in database: {total_appointments}")
+        print(f"📊 Appointments in 2025: {appointments_2025}")
+        print(f"📊 Appointments in January 2025: {appointments_jan_2025}")
+        print(f"📊 Unique dates with appointments: {len(appointments_by_date)}")
+        
+        # Check if we have the expected 11 appointments
+        if total_appointments >= 11:
+            print("✅ Expected number of appointments (11+) found in database")
+        else:
+            print(f"⚠️  Only {total_appointments} appointments found, expected 11+")
+        
+        # Check if date filtering is working
+        working_dates = 0
+        for test_date in test_dates:
+            if test_date in appointments_by_date:
+                working_dates += 1
+        
+        if working_dates > 0:
+            print(f"✅ Date filtering is working for {working_dates}/{len(test_dates)} test dates")
+        else:
+            print("❌ CRITICAL: Date filtering appears to be broken")
+        
+        return total_appointments > 0
+
     def run_all_tests(self):
-        """Run all API tests"""
+        """Run all API tests with focus on urgent date filtering issue"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
+        
+        # URGENT: Test date filtering issue first
+        print("\n🚨 PRIORITY: URGENT DATE FILTERING INVESTIGATION")
+        if not self.test_urgent_date_filtering_investigation():
+            print("❌ URGENT: Date filtering investigation failed")
+            return 1
         
         # Test dashboard first
         if not self.test_dashboard_stats():
