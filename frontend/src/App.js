@@ -2460,13 +2460,17 @@ const SettingsPage = () => {
 
   // Update setting value
   const updateSetting = (category, key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
+    if (category === 'ai') {
+      setAiSettings(prev => ({
+        ...prev,
         [key]: value
-      }
-    }));
+      }));
+    } else if (category === 'clinic') {
+      setClinicSettings(prev => ({
+        ...prev,
+        [key]: value
+      }));
+    }
   };
 
   const configTabs = [
