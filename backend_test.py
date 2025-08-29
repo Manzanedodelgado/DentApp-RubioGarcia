@@ -431,6 +431,189 @@ class OmniDeskAPITester:
         
         return True
 
+    def test_ai_training_crud(self):
+        """Test AI training CRUD operations"""
+        print("\n" + "="*50)
+        print("TESTING AI TRAINING CRUD OPERATIONS")
+        print("="*50)
+        
+        # Test GET AI training (might not exist initially)
+        success, existing_training = self.run_test(
+            "Get AI Training Configuration",
+            "GET",
+            "ai/training",
+            200
+        )
+        
+        if success and existing_training:
+            print(f"   Found existing AI training config")
+        else:
+            print(f"   No existing AI training config found")
+        
+        # Test CREATE/UPDATE AI training
+        training_data = {
+            "practice_name": "RUBIO GARCÍA DENTAL",
+            "system_prompt": "Eres un asistente virtual profesional de la clínica dental RUBIO GARCÍA DENTAL.",
+            "specialties": ["Implantología", "Estética dental", "Ortodoncia", "Endodoncia"],
+            "services": ["Consultas generales", "Limpiezas", "Implantes", "Blanqueamientos", "Ortodoncia"],
+            "working_hours": "Lunes a Viernes 9:00-18:00, Sábados 9:00-14:00",
+            "emergency_contact": "Para emergencias llame al +34 123 456 789",
+            "appointment_instructions": "Para agendar citas necesitamos su nombre completo, teléfono y preferencia de horario.",
+            "policies": "Recordamos confirmar las citas 24 horas antes. Cancelaciones con menos de 2 horas tienen recargo.",
+            "personality": "profesional y amigable",
+            "language": "español"
+        }
+        
+        success, training = self.run_test(
+            "Create/Update AI Training",
+            "POST",
+            "ai/training",
+            200,
+            data=training_data
+        )
+        
+        if not success:
+            return False
+        
+        if training and training.get('id'):
+            print(f"   Created/Updated AI training ID: {training.get('id')}")
+        
+        # Test GET AI training after creation
+        success, retrieved_training = self.run_test(
+            "Get AI Training After Creation",
+            "GET",
+            "ai/training",
+            200
+        )
+        
+        if success and retrieved_training:
+            if retrieved_training.get('practice_name') == training_data['practice_name']:
+                print(f"   ✓ AI training retrieved correctly")
+            else:
+                print(f"   ❌ AI training data mismatch")
+        
+        # Test UPDATE AI training
+        update_data = {
+            "personality": "muy profesional y empático",
+            "working_hours": "Lunes a Viernes 8:00-19:00"
+        }
+        
+        success, updated_training = self.run_test(
+            "Update AI Training",
+            "PUT",
+            "ai/training",
+            200,
+            data=update_data
+        )
+        
+        if success and updated_training:
+            if updated_training.get('personality') == update_data['personality']:
+                print(f"   ✓ AI training updated correctly")
+        
+        return True
+
+    def test_chat_functionality(self):
+        """Test AI chat functionality"""
+        print("\n" + "="*50)
+        print("TESTING AI CHAT FUNCTIONALITY")
+        print("="*50)
+        
+        # First ensure we have a contact for chat
+        if not self.created_resources['contacts']:
+            print("❌ No contacts available for chat testing")
+            return False
+        
+        contact_id = self.created_resources['contacts'][0]
+        
+        # Test CREATE chat session
+        session_params = {
+            "contact_id": contact_id,
+            "contact_name": "Test Contact",
+            "contact_phone": "+1234567890"
+        }
+        
+        success, session = self.run_test(
+            "Create Chat Session",
+            "POST",
+            "chat/sessions",
+            200,
+            params=session_params
+        )
+        
+        if not success:
+            return False
+        
+        session_id = session.get('id')
+        if session_id:
+            print(f"   Created chat session ID: {session_id}")
+        else:
+            print("❌ No session ID returned")
+            return False
+        
+        # Test GET all chat sessions
+        success, sessions = self.run_test(
+            "Get All Chat Sessions",
+            "GET",
+            "chat/sessions",
+            200
+        )
+        
+        if success:
+            print(f"   Found {len(sessions)} chat sessions")
+        
+        # Test GET specific chat session
+        success, retrieved_session = self.run_test(
+            "Get Specific Chat Session",
+            "GET",
+            f"chat/sessions/{session_id}",
+            200
+        )
+        
+        if success and retrieved_session.get('id') == session_id:
+            print(f"   ✓ Chat session retrieved correctly")
+        
+        # Test SEND chat message (AI integration test)
+        message_data = {
+            "content": "Hola, necesito agendar una cita para limpieza dental",
+            "is_from_patient": True
+        }
+        
+        success, ai_response = self.run_test(
+            "Send Chat Message (AI Integration)",
+            "POST",
+            f"chat/message?session_id={session_id}",
+            200,
+            data=message_data
+        )
+        
+        if success:
+            if ai_response.get('ai_response'):
+                print(f"   ✓ AI responded: {ai_response['ai_response'][:100]}...")
+                if ai_response.get('should_schedule_appointment'):
+                    print(f"   ✓ AI detected appointment request")
+            else:
+                print(f"   ❌ No AI response received")
+                return False
+        
+        # Test another message in Spanish
+        message_data2 = {
+            "content": "¿Cuáles son sus horarios de atención?",
+            "is_from_patient": True
+        }
+        
+        success, ai_response2 = self.run_test(
+            "Send Spanish Query Message",
+            "POST",
+            f"chat/message?session_id={session_id}",
+            200,
+            data=message_data2
+        )
+        
+        if success and ai_response2.get('ai_response'):
+            print(f"   ✓ AI responded to Spanish query: {ai_response2['ai_response'][:100]}...")
+        
+        return True
+
     def test_tags_endpoint(self):
         """Test tags aggregation endpoint"""
         print("\n" + "="*50)
