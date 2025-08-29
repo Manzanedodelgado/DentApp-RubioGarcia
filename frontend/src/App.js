@@ -1305,6 +1305,7 @@ function App() {
     { id: "contacts", label: "Pacientes", icon: Users },
     { id: "agenda", label: "Agenda", icon: Calendar },
     { id: "communications", label: "Comunicaciones", icon: MessageCircle },
+    { id: "reminders", label: "Recordatorios", icon: MessageSquare },
     { id: "messages", label: "WhatsApp IA", icon: MessageCircle },
     { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "settings", label: "Configuración", icon: Settings }
