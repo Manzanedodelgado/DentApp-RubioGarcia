@@ -394,6 +394,59 @@ const PendingConversations = () => {
   );
 };
 
+// PWA Install Button Component
+const PWAInstallButton = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      toast.success('¡App instalada correctamente!');
+    }
+    
+    setDeferredPrompt(null);
+    setShowInstall(false);
+  };
+
+  if (!showInstall) return null;
+
+  return (
+    <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+            <MessageCircle className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-800">Instalar App</h3>
+            <p className="text-sm text-blue-600">Acceso rápido al asistente de voz</p>
+          </div>
+        </div>
+        <Button onClick={handleInstall} className="bg-blue-500 hover:bg-blue-600">
+          Instalar
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 // Main Dashboard Component
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
