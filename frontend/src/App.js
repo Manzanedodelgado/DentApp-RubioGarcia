@@ -980,6 +980,7 @@ function App() {
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "contacts", label: "Pacientes", icon: Users },
     { id: "agenda", label: "Agenda", icon: Calendar },
+    { id: "communications", label: "Comunicaciones", icon: MessageCircle },
     { id: "messages", label: "WhatsApp IA", icon: MessageCircle },
     { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "settings", label: "Configuración", icon: Settings }
