@@ -2026,7 +2026,7 @@ async def process_appointment_reminders(rule: dict, current_time: datetime):
         logger.error(f"Error in WhatsApp appointment reminders: {str(e)}")
 
 async def process_surgery_reminders(rule: dict, current_time: datetime):
-    """Send surgery consent reminders for next day"""
+    """Send surgery consent reminders for next day via WhatsApp"""
     try:
         # Calculate tomorrow's date range
         tomorrow = current_time + timedelta(days=1)
@@ -2050,49 +2050,60 @@ async def process_surgery_reminders(rule: dict, current_time: datetime):
         sent_count = 0
         for appointment in appointments:
             if appointment.get("phone"):
-                # Create consent message
-                consent_message = f"""
-Estimado/a {appointment.get('contact_name', '')},
-
-Mañana {tomorrow.strftime('%d de %B de %Y')} tiene programada su {appointment.get('treatment', 'cirugía')} a las {appointment.get('time', '')} con {appointment.get('doctor', '')}.
-
-Por favor, recuerde:
-- Venir en ayunas (si requiere sedación)
-- Traer acompañante
-- Revisar el consentimiento informado adjunto
-
-Para cualquier duda, contáctenos al {os.getenv('CLINIC_PHONE', '916 410 841')}.
-
-RUBIO GARCÍA DENTAL
-                """.strip()
-                
-                # Create message record
-                message = {
-                    "id": str(uuid.uuid4()),
-                    "contact_id": appointment.get("contact_id"),
-                    "message": consent_message,
-                    "type": "outbound",
-                    "timestamp": current_time.isoformat(),
-                    "status": "sent",
-                    "ai_generated": False,
-                    "automated": True
-                }
-                
-                await db.messages.insert_one(message)
-                
-                # Mark appointment as consent sent
-                await db.appointments.update_one(
-                    {"id": appointment["id"]},
-                    {"$set": {"consent_sent": True, "updated_at": current_time.isoformat()}}
-                )
-                
-                sent_count += 1
+                try:
+                    # Send WhatsApp surgery consent
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(
+                            "http://localhost:3001/send-consent",
+                            json={
+                                "phone_number": appointment["phone"],
+                                "appointment_data": {
+                                    "contact_name": appointment.get("contact_name", ""),
+                                    "date": appointment.get("date", ""),
+                                    "time": appointment.get("time", ""),
+                                    "treatment": appointment.get("treatment", "")
+                                }
+                            },
+                            timeout=10.0
+                        )
+                    
+                    if response.status_code == 200:
+                        # Create message record
+                        message = {
+                            "id": str(uuid.uuid4()),
+                            "contact_id": appointment.get("contact_id"),
+                            "message": f"Consentimiento informado WhatsApp enviado para cirugía del {tomorrow.strftime('%d/%m/%Y')}",
+                            "type": "outbound",
+                            "timestamp": current_time.isoformat(),
+                            "status": "sent",
+                            "ai_generated": False,
+                            "automated": True,
+                            "platform": "whatsapp"
+                        }
+                        
+                        await db.messages.insert_one(message)
+                        
+                        # Mark appointment as consent sent
+                        await db.appointments.update_one(
+                            {"id": appointment["id"]},
+                            {"$set": {
+                                "consent_sent": True,
+                                "whatsapp_consent_sent": True,
+                                "updated_at": current_time.isoformat()
+                            }}
+                        )
+                        
+                        sent_count += 1
+                        logger.info(f"✅ WhatsApp surgery consent sent to {appointment.get('contact_name')}")
+                        
+                except Exception as e:
+                    logger.error(f"Error sending WhatsApp consent to {appointment.get('contact_name')}: {str(e)}")
         
         if sent_count > 0:
-            logger.info(f"✅ Sent {sent_count} automatic surgery consent reminders")
+            logger.info(f"✅ Sent {sent_count} automatic WhatsApp surgery consent reminders")
         
     except Exception as e:
-        logger.error(f"Error in surgery reminders: {str(e)}")
+        logger.error(f"Error in WhatsApp surgery reminders: {str(e)}")
 
 def start_scheduler():
     """Start the appointment sync and automation scheduler"""
