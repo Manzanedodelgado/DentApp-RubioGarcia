@@ -1252,6 +1252,375 @@ const Agenda = () => {
   );
 };
 
+// Reminders Component - Dedicated reminders section with CSV import
+const Reminders = () => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [appointments, setAppointments] = useState([]);
+  const [selectedAppointments, setSelectedAppointments] = useState([]);
+  const [templates, setTemplates] = useState([
+    { id: 1, name: "Recordatorio Cita", content: "Hola {nombre}, te recordamos tu cita el {fecha} a las {hora} con {doctor} para {tratamiento}. ¡Te esperamos!" },
+    { id: 2, name: "Confirmación Cita", content: "Estimado/a {nombre}, por favor confirma tu asistencia a la cita del {fecha} a las {hora} con {doctor}." },
+    { id: 3, name: "Recordatorio Revisión", content: "Hola {nombre}, es momento de tu revisión anual. Contacta con nosotros para agendar tu cita." }
+  ]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [sentReminders, setSentReminders] = useState({});
+
+  // Format date for API
+  const formatDateForAPI = (date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Format date for display
+  const formatDateForDisplay = (date) => {
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Fetch appointments for selected date
+  const fetchAppointments = async (date) => {
+    setLoading(true);
+    try {
+      const dateStr = formatDateForAPI(date);
+      const response = await axios.get(`${API}/appointments/by-date?date=${dateStr}`);
+      setAppointments(response.data);
+      setSelectedAppointments([]); // Reset selections
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle appointment selection
+  const toggleAppointmentSelection = (appointmentId) => {
+    setSelectedAppointments(prev => {
+      if (prev.includes(appointmentId)) {
+        return prev.filter(id => id !== appointmentId);
+      } else {
+        return [...prev, appointmentId];
+      }
+    });
+  };
+
+  // Select all appointments
+  const selectAllAppointments = () => {
+    const allIds = appointments.map(apt => apt.id);
+    setSelectedAppointments(allIds);
+  };
+
+  // Deselect all appointments
+  const deselectAllAppointments = () => {
+    setSelectedAppointments([]);
+  };
+
+  // Send reminders
+  const sendReminders = async () => {
+    if (!selectedTemplate || selectedAppointments.length === 0) {
+      toast.error("Selecciona una plantilla y al menos una cita");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const template = templates.find(t => t.id.toString() === selectedTemplate);
+      const selectedApts = appointments.filter(apt => selectedAppointments.includes(apt.id));
+
+      for (const appointment of selectedApts) {
+        // Personalize message
+        let personalizedMessage = template.content
+          .replace(/{nombre}/g, appointment.contact_name)
+          .replace(/{fecha}/g, new Date(appointment.date).toLocaleDateString('es-ES'))
+          .replace(/{hora}/g, appointment.time || '10:00')
+          .replace(/{doctor}/g, appointment.doctor || 'Doctor')
+          .replace(/{tratamiento}/g, appointment.treatment || 'Consulta');
+
+        // Send message (simulate API call)
+        await axios.post(`${API}/communications/send-message`, {
+          contact_id: appointment.contact_id,
+          message: personalizedMessage
+        });
+
+        // Mark as sent
+        setSentReminders(prev => ({
+          ...prev,
+          [appointment.id]: new Date().toISOString()
+        }));
+      }
+
+      toast.success(`Recordatorios enviados a ${selectedApts.length} pacientes`);
+      setSelectedAppointments([]);
+    } catch (error) {
+      console.error("Error sending reminders:", error);
+      toast.error("Error enviando recordatorios");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle CSV file upload
+  const handleCsvUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'text/csv') {
+      setCsvFile(file);
+      toast.success("Archivo CSV cargado correctamente");
+    } else {
+      toast.error("Por favor selecciona un archivo CSV válido");
+    }
+  };
+
+  // Process CSV reminders
+  const processCsvReminders = async () => {
+    if (!csvFile || !selectedTemplate) {
+      toast.error("Selecciona un archivo CSV y una plantilla");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const text = await csvFile.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      const header = lines[0].split(',');
+      
+      const template = templates.find(t => t.id.toString() === selectedTemplate);
+      let processedCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const record = {};
+        
+        header.forEach((col, index) => {
+          record[col.trim()] = values[index]?.trim() || '';
+        });
+
+        if (record.nombre && record.telefono) {
+          // Process CSV reminder
+          let message = template.content
+            .replace(/{nombre}/g, record.nombre)
+            .replace(/{fecha}/g, record.fecha || '')
+            .replace(/{hora}/g, record.hora || '')
+            .replace(/{doctor}/g, record.doctor || '')
+            .replace(/{tratamiento}/g, record.tratamiento || '');
+
+          console.log(`Sending CSV reminder to ${record.nombre}: ${message}`);
+          processedCount++;
+        }
+      }
+
+      toast.success(`Procesados ${processedCount} recordatorios del CSV`);
+      setCsvFile(null);
+    } catch (error) {
+      console.error("Error processing CSV:", error);
+      toast.error("Error procesando archivo CSV");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load appointments when date changes
+  useEffect(() => {
+    fetchAppointments(selectedDate);
+  }, [selectedDate]);
+
+  const allSelected = selectedAppointments.length === appointments.length && appointments.length > 0;
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Recordatorios</h1>
+        <div className="text-sm text-gray-500">
+          {selectedAppointments.length} de {appointments.length} citas seleccionadas
+        </div>
+      </div>
+
+      {/* Date Selection and Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Selección de Fecha y Plantilla</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Date Picker */}
+          <div className="flex items-center space-x-4">
+            <Label className="w-32">Fecha:</Label>
+            <input
+              type="date"
+              value={formatDateForAPI(selectedDate)}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          {/* Template Selection */}
+          <div className="flex items-center space-x-4">
+            <Label className="w-32">Plantilla:</Label>
+            <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Seleccionar plantilla..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={template.id.toString()}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Template Preview */}
+          {selectedTemplate && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <Label className="text-sm font-medium">Vista previa:</Label>
+              <p className="text-sm text-gray-600 mt-1">
+                {templates.find(t => t.id.toString() === selectedTemplate)?.content}
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex space-x-2">
+            <Button
+              onClick={allSelected ? deselectAllAppointments : selectAllAppointments}
+              variant="outline"
+              disabled={appointments.length === 0}
+            >
+              {allSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
+            </Button>
+            
+            <Button
+              onClick={sendReminders}
+              disabled={loading || selectedAppointments.length === 0 || !selectedTemplate}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? 'Enviando...' : `Enviar Recordatorios (${selectedAppointments.length})`}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* CSV Import Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Importar Recordatorios desde CSV</CardTitle>
+          <CardDescription>
+            Sube un archivo CSV con columnas: nombre, telefono, fecha, hora, doctor, tratamiento
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+          
+          {csvFile && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-green-600">✅ {csvFile.name}</span>
+              <Button
+                onClick={processCsvReminders}
+                disabled={loading || !selectedTemplate}
+                size="sm"
+              >
+                Procesar CSV
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Appointments List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Citas del {formatDateForDisplay(selectedDate)}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Cargando citas...</p>
+            </div>
+          ) : appointments.length > 0 ? (
+            <div className="space-y-3">
+              {appointments.map(appointment => {
+                const isSelected = selectedAppointments.includes(appointment.id);
+                const isSent = sentReminders[appointment.id];
+                
+                return (
+                  <div
+                    key={appointment.id}
+                    className={`p-4 border rounded-lg transition-colors cursor-pointer ${
+                      isSelected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => toggleAppointmentSelection(appointment.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAppointmentSelection(appointment.id)}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                          {appointment.contact_name.charAt(0).toUpperCase()}
+                        </div>
+                        
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {appointment.contact_name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {appointment.time || '10:00'} - {appointment.treatment || 'Consulta'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Dr: {appointment.doctor || 'No asignado'} | Tel: {appointment.phone || 'No especificado'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        {isSent ? (
+                          <div className="flex items-center space-x-1 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs">Enviado</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1 text-gray-400">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-xs">Pendiente</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No hay citas</h3>
+              <p>No se encontraron citas para la fecha seleccionada.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // Messages Component (Updated)
 const Messages = () => {
   return (
