@@ -2282,6 +2282,541 @@ const Reminders = () => {
   );
 };
 
+// Settings Component - Advanced Configuration with AI Capabilities
+const Settings = () => {
+  const [activeConfigTab, setActiveConfigTab] = useState("ai");
+  const [settings, setSettings] = useState({
+    ai: {
+      model: "gpt-4",
+      temperature: 0.7,
+      maxTokens: 150,
+      systemPrompt: "Eres un asistente virtual especializado en consultas médicas dentales. Responde de manera profesional, empática y precisa.",
+      autoResponse: true,
+      responseDelay: 2,
+      learningMode: true
+    },
+    integrations: {
+      whatsappToken: "",
+      emergentLlmKey: "sk-emergent-52b94292a251724D2D",
+      googleSheetsApiKey: "AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A",
+      enableWebhooks: false,
+      webhookUrl: ""
+    },
+    system: {
+      autoSync: true,
+      syncInterval: 5,
+      backupEnabled: true,
+      maintenanceMode: false,
+      debugMode: false,
+      logLevel: "info"
+    },
+    communications: {
+      defaultTemplate: "",
+      autoConfirmation: true,
+      businessHours: {
+        start: "09:00",
+        end: "18:00",
+        timezone: "Europe/Madrid"
+      },
+      enableNotifications: true
+    }
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [testingAI, setTestingAI] = useState(false);
+  const [testMessage, setTestMessage] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+
+  // Available AI models
+  const aiModels = [
+    { value: "gpt-4", label: "GPT-4 (Recomendado)", description: "Modelo más avanzado, mejor comprensión contextual" },
+    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo", description: "Rápido y eficiente para respuestas básicas" },
+    { value: "claude-3", label: "Claude 3", description: "Excelente para conversaciones médicas" },
+    { value: "gemini-pro", label: "Gemini Pro", description: "Modelo de Google con capacidades avanzadas" }
+  ];
+
+  // Save settings
+  const saveSettings = async (category) => {
+    setLoading(true);
+    try {
+      await axios.post(`${API}/settings/${category}`, settings[category]);
+      toast.success(`Configuración de ${category} guardada exitosamente`);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error("Error guardando configuración");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Test AI functionality
+  const testAI = async () => {
+    if (!testMessage.trim()) {
+      toast.error("Por favor escribe un mensaje de prueba");
+      return;
+    }
+
+    setTestingAI(true);
+    try {
+      const response = await axios.post(`${API}/ai/test`, {
+        message: testMessage,
+        model: settings.ai.model,
+        temperature: settings.ai.temperature,
+        maxTokens: settings.ai.maxTokens,
+        systemPrompt: settings.ai.systemPrompt
+      });
+
+      setAiResponse(response.data.response);
+      toast.success("Prueba de IA completada");
+    } catch (error) {
+      console.error("Error testing AI:", error);
+      toast.error("Error probando IA");
+      setAiResponse("Error en la conexión con IA");
+    } finally {
+      setTestingAI(false);
+    }
+  };
+
+  // Update setting value
+  const updateSetting = (category, key, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }));
+  };
+
+  // Update nested setting (like businessHours)
+  const updateNestedSetting = (category, parentKey, childKey, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [parentKey]: {
+          ...prev[category][parentKey],
+          [childKey]: value
+        }
+      }
+    }));
+  };
+
+  const configTabs = [
+    { id: "ai", label: "Inteligencia Artificial", icon: Brain },
+    { id: "integrations", label: "Integraciones", icon: Zap },
+    { id: "system", label: "Sistema", icon: Settings },
+    { id: "communications", label: "Comunicaciones", icon: MessageCircle }
+  ];
+
+  return (
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Configuración del Sistema</h1>
+        <p className="text-gray-600 mt-2">Gestiona configuraciones avanzadas, IA y futuras integraciones</p>
+      </div>
+
+      {/* Configuration Tabs */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-1 border-b">
+            {configTabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveConfigTab(tab.id)}
+                  className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors ${
+                    activeConfigTab === tab.id
+                      ? "text-blue-700 border-b-2 border-blue-700"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {/* AI Configuration */}
+          {activeConfigTab === "ai" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configuración de Inteligencia Artificial</h3>
+                
+                {/* AI Model Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label className="text-sm font-medium">Modelo de IA</Label>
+                    <Select 
+                      value={settings.ai.model} 
+                      onValueChange={(value) => updateSetting("ai", "model", value)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {aiModels.map(model => (
+                          <SelectItem key={model.value} value={model.value}>
+                            <div>
+                              <div className="font-medium">{model.label}</div>
+                              <div className="text-xs text-gray-500">{model.description}</div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium">Temperatura ({settings.ai.temperature})</Label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={settings.ai.temperature}
+                      onChange={(e) => updateSetting("ai", "temperature", parseFloat(e.target.value))}
+                      className="mt-1 w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Conservadora</span>
+                      <span>Creativa</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Advanced AI Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="maxTokens" className="text-sm font-medium">Máximo de Tokens</Label>
+                    <Input
+                      id="maxTokens"
+                      type="number"
+                      value={settings.ai.maxTokens}
+                      onChange={(e) => updateSetting("ai", "maxTokens", parseInt(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="responseDelay" className="text-sm font-medium">Retraso de Respuesta (seg)</Label>
+                    <Input
+                      id="responseDelay"
+                      type="number"
+                      value={settings.ai.responseDelay}
+                      onChange={(e) => updateSetting("ai", "responseDelay", parseInt(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-6">
+                    <input
+                      type="checkbox"
+                      id="learningMode"
+                      checked={settings.ai.learningMode}
+                      onChange={(e) => updateSetting("ai", "learningMode", e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <Label htmlFor="learningMode" className="text-sm">Modo Aprendizaje</Label>
+                  </div>
+                </div>
+
+                {/* System Prompt */}
+                <div>
+                  <Label htmlFor="systemPrompt" className="text-sm font-medium">Prompt del Sistema</Label>
+                  <Textarea
+                    id="systemPrompt"
+                    value={settings.ai.systemPrompt}
+                    onChange={(e) => updateSetting("ai", "systemPrompt", e.target.value)}
+                    placeholder="Define cómo debe comportarse la IA..."
+                    className="mt-1 h-24"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Este prompt define el comportamiento base de la IA para todas las conversaciones
+                  </p>
+                </div>
+
+                {/* AI Testing */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3">Prueba de IA en Tiempo Real</h4>
+                  <div className="space-y-3">
+                    <Input
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                      placeholder="Escribe un mensaje para probar la IA..."
+                      onKeyPress={(e) => e.key === 'Enter' && testAI()}
+                    />
+                    <Button onClick={testAI} disabled={testingAI} size="sm">
+                      {testingAI ? "Probando..." : "Probar IA"}
+                    </Button>
+                    {aiResponse && (
+                      <div className="p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                        <p className="text-sm"><strong>Respuesta de IA:</strong></p>
+                        <p className="text-sm text-gray-700 mt-1">{aiResponse}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Button onClick={() => saveSettings("ai")} disabled={loading}>
+                  {loading ? "Guardando..." : "Guardar Configuración de IA"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Integrations Configuration */}
+          {activeConfigTab === "integrations" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configuración de Integraciones</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="whatsappToken" className="text-sm font-medium">Token de WhatsApp Business API</Label>
+                    <Input
+                      id="whatsappToken"
+                      type="password"
+                      value={settings.integrations.whatsappToken}
+                      onChange={(e) => updateSetting("integrations", "whatsappToken", e.target.value)}
+                      placeholder="Ingresa tu token de WhatsApp Business"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="emergentLlmKey" className="text-sm font-medium">Clave Emergent LLM</Label>
+                    <Input
+                      id="emergentLlmKey"
+                      type="password"
+                      value={settings.integrations.emergentLlmKey}
+                      onChange={(e) => updateSetting("integrations", "emergentLlmKey", e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="googleSheetsApiKey" className="text-sm font-medium">API Key de Google Sheets</Label>
+                    <Input
+                      id="googleSheetsApiKey"
+                      type="password"
+                      value={settings.integrations.googleSheetsApiKey}
+                      onChange={(e) => updateSetting("integrations", "googleSheetsApiKey", e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="enableWebhooks"
+                      checked={settings.integrations.enableWebhooks}
+                      onChange={(e) => updateSetting("integrations", "enableWebhooks", e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <Label htmlFor="enableWebhooks" className="text-sm">Habilitar Webhooks</Label>
+                  </div>
+
+                  {settings.integrations.enableWebhooks && (
+                    <div>
+                      <Label htmlFor="webhookUrl" className="text-sm font-medium">URL del Webhook</Label>
+                      <Input
+                        id="webhookUrl"
+                        value={settings.integrations.webhookUrl}
+                        onChange={(e) => updateSetting("integrations", "webhookUrl", e.target.value)}
+                        placeholder="https://tu-webhook.com/endpoint"
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <Button onClick={() => saveSettings("integrations")} disabled={loading} className="mt-4">
+                  {loading ? "Guardando..." : "Guardar Integraciones"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* System Configuration */}
+          {activeConfigTab === "system" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configuración del Sistema</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="autoSync"
+                        checked={settings.system.autoSync}
+                        onChange={(e) => updateSetting("system", "autoSync", e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <Label htmlFor="autoSync" className="text-sm">Sincronización Automática</Label>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="syncInterval" className="text-sm font-medium">Intervalo de Sincronización (minutos)</Label>
+                      <Input
+                        id="syncInterval"
+                        type="number"
+                        value={settings.system.syncInterval}
+                        onChange={(e) => updateSetting("system", "syncInterval", parseInt(e.target.value))}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="backupEnabled"
+                        checked={settings.system.backupEnabled}
+                        onChange={(e) => updateSetting("system", "backupEnabled", e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <Label htmlFor="backupEnabled" className="text-sm">Respaldos Automáticos</Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="maintenanceMode"
+                        checked={settings.system.maintenanceMode}
+                        onChange={(e) => updateSetting("system", "maintenanceMode", e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <Label htmlFor="maintenanceMode" className="text-sm">Modo Mantenimiento</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="debugMode"
+                        checked={settings.system.debugMode}
+                        onChange={(e) => updateSetting("system", "debugMode", e.target.checked)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <Label htmlFor="debugMode" className="text-sm">Modo Debug</Label>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="logLevel" className="text-sm font-medium">Nivel de Logs</Label>
+                      <Select 
+                        value={settings.system.logLevel} 
+                        onValueChange={(value) => updateSetting("system", "logLevel", value)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="debug">Debug</SelectItem>
+                          <SelectItem value="info">Info</SelectItem>
+                          <SelectItem value="warning">Warning</SelectItem>
+                          <SelectItem value="error">Error</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={() => saveSettings("system")} disabled={loading} className="mt-4">
+                  {loading ? "Guardando..." : "Guardar Configuración del Sistema"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Communications Configuration */}
+          {activeConfigTab === "communications" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configuración de Comunicaciones</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="autoConfirmation"
+                      checked={settings.communications.autoConfirmation}
+                      onChange={(e) => updateSetting("communications", "autoConfirmation", e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <Label htmlFor="autoConfirmation" className="text-sm">Confirmación Automática de Citas</Label>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium">Horario de Atención</Label>
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div>
+                        <Label htmlFor="businessStart" className="text-xs text-gray-500">Hora de Inicio</Label>
+                        <Input
+                          id="businessStart"
+                          type="time"
+                          value={settings.communications.businessHours.start}
+                          onChange={(e) => updateNestedSetting("communications", "businessHours", "start", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="businessEnd" className="text-xs text-gray-500">Hora de Fin</Label>
+                        <Input
+                          id="businessEnd"
+                          type="time"
+                          value={settings.communications.businessHours.end}
+                          onChange={(e) => updateNestedSetting("communications", "businessHours", "end", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="timezone" className="text-sm font-medium">Zona Horaria</Label>
+                    <Select 
+                      value={settings.communications.businessHours.timezone} 
+                      onValueChange={(value) => updateNestedSetting("communications", "businessHours", "timezone", value)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Europe/Madrid">Europa/Madrid</SelectItem>
+                        <SelectItem value="America/Mexico_City">América/Ciudad_de_México</SelectItem>
+                        <SelectItem value="America/Buenos_Aires">América/Buenos_Aires</SelectItem>
+                        <SelectItem value="America/Bogota">América/Bogotá</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="enableNotifications"
+                      checked={settings.communications.enableNotifications}
+                      onChange={(e) => updateSetting("communications", "enableNotifications", e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <Label htmlFor="enableNotifications" className="text-sm">Habilitar Notificaciones</Label>
+                  </div>
+                </div>
+
+                <Button onClick={() => saveSettings("communications")} disabled={loading} className="mt-4">
+                  {loading ? "Guardando..." : "Guardar Configuración de Comunicaciones"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // Messages Component (Updated)
 const Messages = () => {
   return (
