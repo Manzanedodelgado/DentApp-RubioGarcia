@@ -807,7 +807,7 @@ function App() {
   const navigationItems = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "contacts", label: "Pacientes", icon: Users },
-    { id: "appointments", label: "Citas", icon: Calendar },
+    { id: "agenda", label: "Agenda", icon: Calendar },
     { id: "messages", label: "WhatsApp IA", icon: MessageCircle },
     { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "settings", label: "Configuración", icon: Settings }
