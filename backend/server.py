@@ -1525,6 +1525,136 @@ async def voice_assistant(request: VoiceAssistantRequest):
         logger.error(f"Error in voice assistant: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing voice request")
 
+# Google Sheets Sync Routes
+@api_router.put("/appointments/{appointment_id}")
+async def update_appointment(appointment_id: str, update_data: AppointmentUpdate):
+    """Update appointment and sync to Google Sheets"""
+    try:
+        # Get existing appointment
+        appointment = await db.appointments.find_one({"id": appointment_id})
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Build update fields
+        update_fields = {}
+        if update_data.status is not None:
+            update_fields["status"] = update_data.status
+        if update_data.doctor is not None:
+            update_fields["doctor"] = update_data.doctor
+        if update_data.treatment is not None:
+            update_fields["treatment"] = update_data.treatment
+        if update_data.time is not None:
+            update_fields["time"] = update_data.time
+        if update_data.date is not None:
+            update_fields["date"] = update_data.date
+        if update_data.notes is not None:
+            update_fields["notes"] = update_data.notes
+        if update_data.duration_minutes is not None:
+            update_fields["duration_minutes"] = update_data.duration_minutes
+        
+        update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_fields["synced_to_sheets"] = False  # Mark as needing sync
+        
+        # Update appointment in database
+        result = await db.appointments.update_one(
+            {"id": appointment_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Get updated appointment for sync
+        updated_appointment = await db.appointments.find_one({"id": appointment_id})
+        
+        # Try to sync to Google Sheets immediately
+        try:
+            from google_sync import sync_appointment_to_sheets
+            sync_success = await sync_appointment_to_sheets(updated_appointment)
+            if sync_success:
+                logger.info(f"✅ Appointment {appointment_id} synced to Google Sheets")
+            else:
+                logger.warning(f"⚠️ Failed to sync appointment {appointment_id} to Google Sheets")
+        except Exception as sync_error:
+            logger.error(f"❌ Sync error: {str(sync_error)}")
+        
+        return {"message": "Appointment updated successfully", "appointment_id": appointment_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating appointment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating appointment")
+
+@api_router.post("/appointments/{appointment_id}/sync")
+async def sync_appointment_to_sheets_endpoint(appointment_id: str):
+    """Manually sync a single appointment to Google Sheets"""
+    try:
+        # Get appointment
+        appointment = await db.appointments.find_one({"id": appointment_id})
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Sync to Google Sheets
+        from google_sync import sync_appointment_to_sheets
+        success = await sync_appointment_to_sheets(appointment)
+        
+        if success:
+            return {"message": "Appointment synced to Google Sheets successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to sync appointment to Google Sheets")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error syncing appointment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error syncing appointment")
+
+@api_router.post("/sync/sheets/all")
+async def sync_all_pending_to_sheets():
+    """Sync all pending changes to Google Sheets"""
+    try:
+        from google_sync import sync_pending_changes_to_sheets
+        success = await sync_pending_changes_to_sheets()
+        
+        if success:
+            return {"message": "All pending changes synced to Google Sheets successfully"}
+        else:
+            return {"message": "Sync completed with some errors", "status": "partial"}
+        
+    except Exception as e:
+        logger.error(f"Error in bulk sync: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error in bulk sync process")
+
+@api_router.get("/sync/sheets/status")
+async def get_sync_status():
+    """Get sync status and pending changes count"""
+    try:
+        # Count pending appointments
+        pending_count = await db.appointments.count_documents({
+            "synced_to_sheets": {"$ne": True}
+        })
+        
+        # Get last sync time
+        last_sync = await db.appointments.find_one(
+            {"synced_to_sheets": True},
+            sort=[("last_synced_at", -1)]
+        )
+        
+        last_sync_time = None
+        if last_sync and last_sync.get("last_synced_at"):
+            last_sync_time = last_sync["last_synced_at"]
+        
+        return {
+            "pending_changes": pending_count,
+            "last_sync_time": last_sync_time,
+            "sync_available": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting sync status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting sync status")
+
 # Settings Routes
 @api_router.get("/settings/clinic")
 async def get_clinic_settings():
