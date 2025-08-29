@@ -120,9 +120,10 @@ def parse_date_time(date_str, time_str):
         return datetime.now(timezone.utc)
 
 async def import_appointments():
-    """Import appointments from Google Sheets data"""
+    """Import appointments from Google Sheets using specified columns"""
     
     print("🚀 Starting data import for RUBIO GARCÍA DENTAL...")
+    print("📋 Using columns: H(Fecha), I(Hora), F(Apellidos), E(Nombre), D(NumPac), G(TelMovil), L(Doctor), K(Tratamiento), J(Estado)")
     
     # Get data from Google Sheets
     appointments_data = get_google_sheets_data()
@@ -137,8 +138,9 @@ async def import_appointments():
         async for contact in existing_contacts_cursor:
             name = contact.get('name', '')
             phone = contact.get('phone', '')
-            # Use name + phone as unique key
-            key = f"{name}_{phone}"
+            numpac = contact.get('patient_number', '')
+            # Use name + phone + numpac as unique key
+            key = f"{name}_{phone}_{numpac}"
             existing_contacts[key] = contact.get('id')
         print(f"📋 Found {len(existing_contacts)} existing contacts in database")
     except Exception as e:
@@ -152,71 +154,86 @@ async def import_appointments():
     imported_contacts = 0
     imported_appointments = 0
     updated_contacts = 0
+    skipped_rows = 0
     
-    # Sort appointments by date (Fecha column) starting from January 1, 2025
-    appointments_data.sort(key=lambda x: x.get('Fecha', ''))
-    
-    for apt_data in appointments_data:
+    # Process each row from Google Sheets
+    for row_data in appointments_data:
         try:
-            # Create or get contact
-            full_name = f"{apt_data.get('Nombre', '')} {apt_data.get('Apellidos', '')}".strip()
-            phone = apt_data.get('TelMovil', '').strip()
+            # Extract data from specified columns
+            fecha = row_data.get('Fecha', '').strip()  # Column H
+            hora = row_data.get('Hora', '').strip()   # Column I  
+            apellidos = row_data.get('Apellidos', '').strip()  # Column F
+            nombre = row_data.get('Nombre', '').strip()  # Column E
+            numpac = row_data.get('NumPac', '').strip()  # Column D
+            tel_movil = row_data.get('TelMovil', '').strip()  # Column G
+            doctor = row_data.get('Doctor', '').strip()  # Column L
+            tratamiento = row_data.get('Tratamiento', '').strip()  # Column K
+            estado = row_data.get('Estado', '').strip()  # Column J
             
-            if not full_name or not apt_data.get('Fecha'):
-                print(f"⚠️ Skipping incomplete data: {full_name} - {apt_data.get('Fecha')}")
+            # Create full name (Nombre + Apellidos)
+            full_name = f"{nombre} {apellidos}".strip()
+            
+            # Skip if missing essential data
+            if not full_name or not fecha or not numpac:
+                print(f"⚠️ Skipping incomplete data: {full_name} - {fecha} - NumPac: {numpac}")
+                skipped_rows += 1
                 continue
             
             # Check if contact already exists (avoid duplicates)
-            contact_key = f"{full_name}_{phone}"
+            contact_key = f"{full_name}_{tel_movil}_{numpac}"
             
             if contact_key in existing_contacts:
                 # Use existing contact
                 contact_id = existing_contacts[contact_key]
-                contacts_dict[full_name] = contact_id
+                contacts_dict[contact_key] = contact_id
                 updated_contacts += 1
-                print(f"🔄 Using existing contact: {full_name}")
-            elif full_name not in contacts_dict:
+                print(f"🔄 Using existing contact: {full_name} (NumPac: {numpac})")
+            elif contact_key not in contacts_dict:
                 # Create new contact
                 contact_id = str(uuid.uuid4())
                 contact = {
                     "id": contact_id,
                     "name": full_name,
-                    "phone": phone,
-                    "whatsapp": phone,
+                    "phone": tel_movil,
+                    "whatsapp": tel_movil,
                     "email": None,
+                    "patient_number": numpac,  # Store patient number
                     "tags": ["paciente", "google-sheets"],
                     "status": "active",
-                    "notes": f"Paciente importado desde Google Sheets - Registro: {apt_data.get('Registro', 'N/A')}",
+                    "notes": f"Paciente importado desde Google Sheets - NumPac: {numpac}",
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
                 
                 await db.contacts.insert_one(contact)
-                contacts_dict[full_name] = contact_id
+                contacts_dict[contact_key] = contact_id
                 existing_contacts[contact_key] = contact_id  # Add to existing for future checks
                 imported_contacts += 1
-                print(f"📝 Created new contact: {full_name}")
+                print(f"📝 Created new contact: {full_name} (NumPac: {numpac})")
             else:
-                contact_id = contacts_dict[full_name]
+                contact_id = contacts_dict[contact_key]
             
-            # Create appointment using Fecha as key for ordering
-            contact_id = contacts_dict[full_name]
-            appointment_date = parse_date_time(apt_data['Fecha'], apt_data.get('Hora', '09:00'))
+            # Create appointment using Fecha + Hora for ordering
+            contact_id = contacts_dict[contact_key]
+            appointment_date = parse_date_time(fecha, hora if hora else '09:00')
             
-            # Build comprehensive title
-            treatment = apt_data.get('Tratamiento', 'Consulta')
-            doctor = apt_data.get('Odontologo', 'Dr. No especificado')
-            title = f"{treatment} - {doctor}"
+            # Normalize appointment status
+            normalized_status = normalize_status(estado)
             
             appointment = {
                 "id": str(uuid.uuid4()),
                 "contact_id": contact_id,
                 "contact_name": full_name,
-                "title": title,
-                "description": apt_data.get('Notas', ''),
+                "patient_number": numpac,
+                "phone": tel_movil,
+                "doctor": doctor,
+                "treatment": tratamiento,
+                "title": f"{tratamiento} - {doctor}" if tratamiento and doctor else tratamiento or doctor or "Cita",
+                "description": f"NumPac: {numpac}, Tel: {tel_movil}",
                 "date": appointment_date.isoformat(),
-                "duration_minutes": int(apt_data.get('Duracion', '30')),
-                "status": normalize_status(apt_data.get('EstadoCita', 'Planificada')),
+                "time": hora,  # Store original time
+                "duration_minutes": 30,  # Default duration
+                "status": normalized_status,
                 "reminder_sent": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
@@ -226,12 +243,14 @@ async def import_appointments():
             imported_appointments += 1
             
         except Exception as e:
-            print(f"❌ Error importing appointment {apt_data.get('Registro', 'Unknown')}: {str(e)}")
+            print(f"❌ Error importing appointment: {str(e)}")
+            skipped_rows += 1
     
     print(f"\n🎉 Import completed successfully!")
     print(f"✅ Created {imported_contacts} new patients")
-    print(f"🔄 Updated {updated_contacts} existing patients")
+    print(f"🔄 Updated {updated_contacts} existing patients") 
     print(f"✅ Imported {imported_appointments} appointments")
+    print(f"⚠️ Skipped {skipped_rows} rows (incomplete data)")
     print(f"📊 Data is now available in the platform")
     
     if imported_appointments > 0:
