@@ -2466,26 +2466,20 @@ const SettingsPage = () => {
     }));
   };
 
-  // Update nested setting (like businessHours)
-  const updateNestedSetting = (category, parentKey, childKey, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [parentKey]: {
-          ...prev[category][parentKey],
-          [childKey]: value
-        }
-      }
-    }));
-  };
-
   const configTabs = [
-    { id: "ai", label: "Inteligencia Artificial", icon: Brain },
-    { id: "integrations", label: "Integraciones", icon: Zap },
-    { id: "system", label: "Sistema", icon: Settings },
-    { id: "communications", label: "Comunicaciones", icon: MessageCircle }
+    { id: "clinic", label: "Información Clínica", icon: Users },
+    { id: "ai", label: "Asistente de IA", icon: Brain },
+    { id: "automations", label: "Automatizaciones", icon: Zap },
+    { id: "voice", label: "Asistente de Voz", icon: MessageCircle }
   ];
+  
+  if (loading && !clinicSettings) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
