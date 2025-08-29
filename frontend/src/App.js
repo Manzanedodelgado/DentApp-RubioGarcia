@@ -416,7 +416,7 @@ const Dashboard = () => {
         </div>
       </Card>
 
-      {/* Quick Actions & Activity - Responsive Layout */}
+      {/* Quick Actions & Pending Conversations - Responsive Layout */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -438,27 +438,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Actividad Reciente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>Cita confirmada con paciente</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Bot className="w-4 h-4 text-purple-500" />
-                <span>IA respondió consulta de WhatsApp</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-orange-500" />
-                <span>Recordatorio enviado automáticamente</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <PendingConversations />
       </div>
 
       {/* Platform Support */}
