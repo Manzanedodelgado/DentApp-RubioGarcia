@@ -302,7 +302,7 @@ class AutomationRule(BaseModel):
 class SettingsUpdate(BaseModel):
     clinic: Optional[ClinicSettings] = None
     ai: Optional[AISettings] = None
-    automations: Optional[List[AutomationRule]] = None = False
+    automations: Optional[List[AutomationRule]] = None
 
 # Helper functions
 def prepare_for_mongo(data):
