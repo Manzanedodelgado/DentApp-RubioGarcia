@@ -2921,6 +2921,8 @@ function MainDashboard() {
         return <Messages />;
       case "ai-training":
         return <AITraining />;
+      case "settings":
+        return <Settings />;
       default:
         return <Dashboard />;
     }
