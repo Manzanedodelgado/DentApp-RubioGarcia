@@ -2121,6 +2121,8 @@ function App() {
         return <Communications />;
       case "reminders":
         return <Reminders />;
+      case "templates":
+        return <Templates />;
       case "messages":
         return <Messages />;
       case "ai-training":
