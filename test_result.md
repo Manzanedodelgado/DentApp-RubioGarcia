@@ -261,7 +261,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "AI Assistant and Settings endpoints testing complete - all functionality working perfectly"
+    - "Test new Settings (Configuración) section with AI assistant and voice capabilities"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
