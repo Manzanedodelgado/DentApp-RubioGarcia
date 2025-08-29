@@ -1908,7 +1908,7 @@ const Reminders = () => {
               </SelectTrigger>
               <SelectContent>
                 {templates.map(template => (
-                  <SelectItem key={template.id} value={template.id.toString()}>
+                  <SelectItem key={template.id} value={template.id}>
                     {template.name}
                   </SelectItem>
                 ))}
