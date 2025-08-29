@@ -695,6 +695,115 @@ async def get_available_tags():
     tags = await db.contacts.aggregate(pipeline).to_list(1000)
     return [{"name": tag["_id"], "count": tag["count"]} for tag in tags]
 
+# Authentication Models
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
+    token: Optional[str] = None
+    user: Optional[dict] = None
+
+# Authentication Routes
+@api_router.post("/auth/login", response_model=AuthResponse)
+async def login(login_data: LoginRequest):
+    """Authenticate user with username and password"""
+    try:
+        # Fixed credentials for admin user
+        ADMIN_USERNAME = "JMD"
+        ADMIN_PASSWORD = "190582"
+        
+        if login_data.username == ADMIN_USERNAME and login_data.password == ADMIN_PASSWORD:
+            # Create session token (simple UUID for now)
+            token = str(uuid.uuid4())
+            
+            # Store session in database
+            session = {
+                "id": str(uuid.uuid4()),
+                "token": token,
+                "username": ADMIN_USERNAME,
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "expires_at": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+                "active": True
+            }
+            
+            await db.sessions.insert_one(session)
+            
+            return AuthResponse(
+                success=True,
+                message="Login successful",
+                token=token,
+                user={
+                    "username": ADMIN_USERNAME,
+                    "role": "admin",
+                    "name": "Administrador JMD"
+                }
+            )
+        else:
+            return AuthResponse(
+                success=False,
+                message="Credenciales incorrectas"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error during login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error during authentication")
+
+@api_router.post("/auth/logout")
+async def logout(token: str = None):
+    """Logout user and invalidate session"""
+    try:
+        if token:
+            await db.sessions.update_one(
+                {"token": token},
+                {"$set": {"active": False, "ended_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        
+        return {"success": True, "message": "Logout successful"}
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error during logout")
+
+@api_router.get("/auth/verify")
+async def verify_token(token: str = None):
+    """Verify if token is valid and active"""
+    try:
+        if not token:
+            return {"valid": False, "message": "No token provided"}
+        
+        session = await db.sessions.find_one({
+            "token": token,
+            "active": True
+        })
+        
+        if not session:
+            return {"valid": False, "message": "Invalid or expired token"}
+        
+        # Check if session has expired
+        expires_at = datetime.fromisoformat(session["expires_at"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expires_at:
+            # Mark session as inactive
+            await db.sessions.update_one(
+                {"token": token},
+                {"$set": {"active": False, "ended_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            return {"valid": False, "message": "Token expired"}
+        
+        return {
+            "valid": True,
+            "user": {
+                "username": session["username"],
+                "role": session["role"],
+                "name": "Administrador JMD"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error verifying token: {str(e)}")
+        return {"valid": False, "message": "Error verifying token"}
+
 # Template Management Routes
 @api_router.get("/templates")
 async def get_templates():
