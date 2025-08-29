@@ -2675,14 +2675,38 @@ class OmniDeskAPITester:
         return True
 
     def run_all_tests(self):
-        """Run all API tests with URGENT focus on July 27, 2025 investigation"""
-        print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
+        """Run all API tests with focus on AI and Settings endpoints"""
+        print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite - AI & Settings Focus")
         print(f"Backend URL: {self.base_url}")
         
-        # 🚨 URGENT PRIORITY: July 27, 2025 Investigation
-        print("\n🚨 URGENT PRIORITY: JULY 27, 2025 INVESTIGATION")
-        if not self.test_urgent_july_27_2025_investigation():
-            print("❌ CRITICAL: July 27, 2025 investigation failed")
+        # Initialize auth_token attribute
+        self.auth_token = None
+        
+        # Authentication first (required for protected endpoints)
+        print("\n🔐 AUTHENTICATION SYSTEM")
+        if not self.test_authentication_system():
+            print("❌ Authentication failed - cannot test protected endpoints")
+            return 1
+        
+        # 🎯 PRIMARY FOCUS: AI and Settings endpoints
+        print("\n🎯 PRIMARY FOCUS: AI VOICE ASSISTANT")
+        if not self.test_ai_voice_assistant():
+            print("❌ CRITICAL: AI voice assistant tests failed")
+            return 1
+        
+        print("\n🎯 PRIMARY FOCUS: SETTINGS ENDPOINTS")
+        if not self.test_settings_endpoints():
+            print("❌ CRITICAL: Settings endpoints tests failed")
+            return 1
+        
+        print("\n🎯 PRIMARY FOCUS: EMERGENT LLM INTEGRATION")
+        if not self.test_emergent_llm_integration():
+            print("❌ CRITICAL: Emergent LLM integration tests failed")
+            return 1
+        
+        print("\n🎯 PRIMARY FOCUS: AUTOMATION SCHEDULER")
+        if not self.test_automation_scheduler():
+            print("❌ CRITICAL: Automation scheduler tests failed")
             return 1
         
         # PRIMARY FOCUS: Count exact rows in Google Sheet
