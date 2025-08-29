@@ -717,23 +717,19 @@ const AITraining = () => {
   );
 };
 
-// Agenda Component with Monthly Calendar and Appointment List
+// Agenda Component - REBUILT FROM SCRATCH
 const Agenda = () => {
-  // Start with January 2, 2025 (where the real appointments start - 23 appointments available)
+  const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 1)); // January 1, 2025
   const [appointments, setAppointments] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 2)); // January 2, 2025 (where real appointments exist)
   const [loading, setLoading] = useState(false);
-  const [selectedAppointments, setSelectedAppointments] = useState([]);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Format date to YYYY-MM-DD
+  // Format date for API (YYYY-MM-DD)
   const formatDateForAPI = (date) => {
     return date.toISOString().split('T')[0];
   };
 
-  // Format date for display
-  const formatDateForDisplay = (dateStr) => {
-    const date = new Date(dateStr);
+  // Format date for display 
+  const formatDateForDisplay = (date) => {
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -742,328 +738,82 @@ const Agenda = () => {
     });
   };
 
-  // Format time for display
-  const formatTime = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Get status color
-  const getStatusColor = (status) => {
-    const colors = {
-      'scheduled': 'bg-blue-100 text-blue-800',
-      'confirmed': 'bg-green-100 text-green-800',
-      'cancelled': 'bg-red-100 text-red-800',
-      'completed': 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Get status text
-  const getStatusText = (status) => {
-    const texts = {
-      'scheduled': 'Programada',
-      'confirmed': 'Confirmada',
-      'cancelled': 'Cancelada',
-      'completed': 'Completada'
-    };
-    return texts[status] || status;
-  };
-
   // Fetch appointments for selected date
   const fetchAppointments = async (date) => {
     setLoading(true);
     try {
       const dateStr = formatDateForAPI(date);
-      console.log(`🔍 Fetching appointments for date: ${dateStr}`);
+      console.log(`Fetching appointments for: ${dateStr}`);
       
       const response = await axios.get(`${API}/appointments/by-date?date=${dateStr}`);
-      console.log(`✅ API Response:`, response.data);
-      
       setAppointments(response.data);
-      
-      if (response.data.length > 0) {
-        console.log(`📅 Found ${response.data.length} appointments for ${dateStr}`);
-      } else {
-        console.log(`📭 No appointments found for ${dateStr}`);
-      }
+      console.log(`Found ${response.data.length} appointments for ${dateStr}`);
     } catch (error) {
-      console.error("❌ Error fetching appointments:", error);
-      console.error("Error details:", error.response?.data);
-      toast.error("Error loading appointments");
+      console.error("Error fetching appointments:", error);
       setAppointments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Generate calendar days for the month
-  const getCalendarDays = () => {
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    
-    const firstDayOfMonth = new Date(year, month, 1);
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    
-    // Convert Sunday=0 based getDay() to Monday=0 based for our calendar
-    const firstDayWeekday = (firstDayOfMonth.getDay() + 6) % 7;
-    
-    const days = [];
-    
-    // Add previous month's trailing days
-    for (let i = firstDayWeekday - 1; i >= 0; i--) {
-      const date = new Date(year, month, -i);
-      days.push({ date, isCurrentMonth: false });
-    }
-    
-    // Add current month's days
-    for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
-      const date = new Date(year, month, day);
-      days.push({ date, isCurrentMonth: true });
-    }
-    
-    // Add next month's leading days to complete the grid
-    const remainingDays = 42 - days.length;
-    for (let day = 1; day <= remainingDays; day++) {
-      const date = new Date(year, month + 1, day);
-      days.push({ date, isCurrentMonth: false });
-    }
-    
-    return days;
-  };
-
-  // Handle calendar navigation
-  const navigateMonth = (direction) => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(selectedDate.getMonth() + direction);
-    setSelectedDate(newDate);
-  };
-
-  // Handle day selection
-  const selectDay = (date) => {
-    setSelectedDate(date);
-    fetchAppointments(date);
-  };
-
-  // Handle appointment selection
-  const toggleAppointmentSelection = (appointmentId) => {
-    setSelectedAppointments(prev => {
-      if (prev.includes(appointmentId)) {
-        return prev.filter(id => id !== appointmentId);
-      } else {
-        return [...prev, appointmentId];
-      }
-    });
-  };
-
-  // Send confirmation messages
-  const sendConfirmationMessages = () => {
-    // This will be implemented later
-    toast.success(`Se enviarán mensajes de confirmación a ${selectedAppointments.length} citas seleccionadas`);
-    setSelectedAppointments([]);
-    setShowConfirmDialog(false);
-  };
-
-  // Auto-refresh every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (selectedDate) {
-        fetchAppointments(selectedDate);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [selectedDate]);
-
-  // Initial load
+  // Load appointments when date changes
   useEffect(() => {
     fetchAppointments(selectedDate);
-  }, []);
-
-  const calendarDays = getCalendarDays();
-  const today = new Date();
-  const todayStr = formatDateForAPI(today);
-  const selectedDateStr = formatDateForAPI(selectedDate);
+  }, [selectedDate]);
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900">
-          Agenda - {formatDateForDisplay(selectedDate)}
-        </h1>
-        {selectedAppointments.length > 0 && (
-          <Button onClick={() => setShowConfirmDialog(true)} className="bg-blue-600 hover:bg-blue-700">
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Enviar Confirmaciones ({selectedAppointments.length})
-          </Button>
-        )}
-      </div>
-
-      {/* Monthly Calendar */}
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">Agenda - {formatDateForDisplay(selectedDate)}</h1>
+      
+      {/* Simple Date Picker */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              {selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-            </CardTitle>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={() => navigateMonth(-1)}>
-                ←
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => selectDay(today)}>
-                Hoy
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigateMonth(1)}>
-                →
-              </Button>
-            </div>
-          </div>
+          <CardTitle>Seleccionar Fecha</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Calendar Header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-              <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
-                {day}
-              </div>
-            ))}
-          </div>
-          
-          {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((dayInfo, index) => {
-              const dayStr = formatDateForAPI(dayInfo.date);
-              const isToday = dayStr === todayStr;
-              const isSelected = dayStr === selectedDateStr;
-              
-              return (
-                <button
-                  key={index}
-                  onClick={() => selectDay(dayInfo.date)}
-                  className={`
-                    p-2 text-sm rounded-lg hover:bg-blue-50 transition-colors
-                    ${dayInfo.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}
-                    ${isToday ? 'bg-blue-100 font-semibold text-blue-600' : ''}
-                    ${isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
-                  `}
-                >
-                  {dayInfo.date.getDate()}
-                </button>
-              );
-            })}
-          </div>
+          <input 
+            type="date" 
+            value={formatDateForAPI(selectedDate)}
+            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            className="w-full p-2 border rounded"
+            min="2025-01-01"
+          />
         </CardContent>
       </Card>
 
-      {/* Appointment List */}
+      {/* Appointments List */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Clock className="w-5 h-5" />
-            <span>Citas del {formatDateForDisplay(selectedDate)}</span>
-            {loading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 ml-2"></div>
-            )}
-          </CardTitle>
+          <CardTitle>Citas para {formatDateForDisplay(selectedDate)}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
+            <div className="text-center py-4">Cargando...</div>
           ) : appointments.length > 0 ? (
-            <div className="space-y-3">
-              {appointments.map((appointment) => (
-                <div 
-                  key={appointment.id}
-                  className={`p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer ${
-                    selectedAppointments.includes(appointment.id) ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-                  }`}
-                  onClick={() => toggleAppointmentSelection(appointment.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedAppointments.includes(appointment.id)}
-                          onChange={() => toggleAppointmentSelection(appointment.id)}
-                          className="w-4 h-4 text-blue-600 rounded"
-                        />
-                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          {appointment.contact_name.charAt(0).toUpperCase()}
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-                          <div>
-                            <h3 className="font-semibold text-gray-900">
-                              {appointment.contact_name}
-                            </h3>
-                            <p className="text-sm text-gray-600 truncate">
-                              {appointment.title}
-                            </p>
-                            {appointment.description && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                {appointment.description}
-                              </p>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center space-x-3 text-sm">
-                            <div className="flex items-center space-x-1 text-gray-600">
-                              <Clock className="w-4 h-4" />
-                              <span>{formatTime(appointment.date)}</span>
-                            </div>
-                            
-                            <div className="flex items-center space-x-1 text-gray-600">
-                              <span>{appointment.duration_minutes} min</span>
-                            </div>
-                            
-                            <Badge className={getStatusColor(appointment.status)}>
-                              {getStatusText(appointment.status)}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+            <div className="space-y-4">
+              {appointments.map((appointment, index) => (
+                <div key={index} className="p-4 border rounded-lg">
+                  <h3 className="font-semibold text-lg">{appointment.contact_name}</h3>
+                  <p className="text-gray-600">{appointment.title}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(appointment.date).toLocaleTimeString('es-ES', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })} - {appointment.duration_minutes} min
+                  </p>
+                  {appointment.description && (
+                    <p className="text-sm text-gray-500 mt-2">{appointment.description}</p>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">No hay citas programadas</h3>
-              <p className="text-gray-500">No se encontraron citas para el día seleccionado.</p>
+            <div className="text-center py-8 text-gray-500">
+              No hay citas programadas para esta fecha
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Confirmation Dialog */}
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enviar Mensajes de Confirmación</DialogTitle>
-            <DialogDescription>
-              ¿Deseas enviar mensajes de confirmación a las {selectedAppointments.length} citas seleccionadas?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={sendConfirmationMessages}>
-              Enviar Confirmaciones
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
