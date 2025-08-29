@@ -1514,6 +1514,171 @@ async def sync_job():
     except Exception as e:
         logger.error(f"❌ Automatic sync failed: {str(e)}")
 
+async def automation_job():
+    """Background job to process automated reminders"""
+    try:
+        # Get enabled automation rules
+        rules = await db.automation_rules.find({"enabled": True}).to_list(100)
+        
+        for rule in rules:
+            await process_automation_rule(rule)
+        
+        logger.info("✅ Automation rules processed")
+    except Exception as e:
+        logger.error(f"❌ Automation processing failed: {str(e)}")
+
+async def process_automation_rule(rule: dict):
+    """Process individual automation rule"""
+    try:
+        current_time = datetime.now(timezone.utc)
+        current_hour_minute = current_time.strftime("%H:%M")
+        
+        # Check if it's time to execute this rule
+        if rule.get("trigger_time") and rule["trigger_time"] != current_hour_minute:
+            return
+        
+        rule_type = rule["trigger_type"]
+        
+        if rule_type == "appointment_day_before":
+            await process_appointment_reminders(rule, current_time)
+        elif rule_type == "surgery_reminder":
+            await process_surgery_reminders(rule, current_time)
+        
+    except Exception as e:
+        logger.error(f"Error processing automation rule {rule.get('name', 'Unknown')}: {str(e)}")
+
+async def process_appointment_reminders(rule: dict, current_time: datetime):
+    """Send appointment reminders for next day"""
+    try:
+        # Calculate tomorrow's date range
+        tomorrow = current_time + timedelta(days=1)
+        start_of_day = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Get appointments for tomorrow
+        filter_query = {
+            "date": {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            },
+            "reminder_sent": {"$ne": True}
+        }
+        
+        appointments = await db.appointments.find(filter_query).to_list(1000)
+        
+        # Get template
+        template = await db.message_templates.find_one({"name": "Recordatorio Cita"})
+        if not template:
+            return
+        
+        sent_count = 0
+        for appointment in appointments:
+            if appointment.get("phone"):
+                # Personalize message
+                personalized_message = template["content"]
+                personalized_message = personalized_message.replace("{nombre}", appointment.get("contact_name", ""))
+                personalized_message = personalized_message.replace("{fecha}", tomorrow.strftime("%d de %B de %Y"))
+                personalized_message = personalized_message.replace("{hora}", appointment.get("time", ""))
+                personalized_message = personalized_message.replace("{doctor}", appointment.get("doctor", ""))
+                personalized_message = personalized_message.replace("{tratamiento}", appointment.get("treatment", ""))
+                
+                # Create message record
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": appointment.get("contact_id"),
+                    "message": personalized_message,
+                    "type": "outbound",
+                    "timestamp": current_time.isoformat(),
+                    "status": "sent",
+                    "ai_generated": False,
+                    "automated": True
+                }
+                
+                await db.messages.insert_one(message)
+                
+                # Mark appointment as reminded
+                await db.appointments.update_one(
+                    {"id": appointment["id"]},
+                    {"$set": {"reminder_sent": True, "updated_at": current_time.isoformat()}}
+                )
+                
+                sent_count += 1
+        
+        if sent_count > 0:
+            logger.info(f"✅ Sent {sent_count} automatic appointment reminders")
+        
+    except Exception as e:
+        logger.error(f"Error in appointment reminders: {str(e)}")
+
+async def process_surgery_reminders(rule: dict, current_time: datetime):
+    """Send surgery consent reminders for next day"""
+    try:
+        # Calculate tomorrow's date range
+        tomorrow = current_time + timedelta(days=1)
+        start_of_day = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Get surgery appointments for tomorrow
+        surgery_keywords = ["implante", "cirugía", "extracción", "exodoncia"]
+        
+        filter_query = {
+            "date": {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            },
+            "treatment": {"$regex": "|".join(surgery_keywords), "$options": "i"},
+            "consent_sent": {"$ne": True}
+        }
+        
+        appointments = await db.appointments.find(filter_query).to_list(1000)
+        
+        sent_count = 0
+        for appointment in appointments:
+            if appointment.get("phone"):
+                # Create consent message
+                consent_message = f"""
+Estimado/a {appointment.get('contact_name', '')},
+
+Mañana {tomorrow.strftime('%d de %B de %Y')} tiene programada su {appointment.get('treatment', 'cirugía')} a las {appointment.get('time', '')} con {appointment.get('doctor', '')}.
+
+Por favor, recuerde:
+- Venir en ayunas (si requiere sedación)
+- Traer acompañante
+- Revisar el consentimiento informado adjunto
+
+Para cualquier duda, contáctenos al {os.getenv('CLINIC_PHONE', '916 410 841')}.
+
+RUBIO GARCÍA DENTAL
+                """.strip()
+                
+                # Create message record
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": appointment.get("contact_id"),
+                    "message": consent_message,
+                    "type": "outbound",
+                    "timestamp": current_time.isoformat(),
+                    "status": "sent",
+                    "ai_generated": False,
+                    "automated": True
+                }
+                
+                await db.messages.insert_one(message)
+                
+                # Mark appointment as consent sent
+                await db.appointments.update_one(
+                    {"id": appointment["id"]},
+                    {"$set": {"consent_sent": True, "updated_at": current_time.isoformat()}}
+                )
+                
+                sent_count += 1
+        
+        if sent_count > 0:
+            logger.info(f"✅ Sent {sent_count} automatic surgery consent reminders")
+        
+    except Exception as e:
+        logger.error(f"Error in surgery reminders: {str(e)}")
+
 def start_scheduler():
     """Start the appointment sync scheduler"""
     global scheduler
