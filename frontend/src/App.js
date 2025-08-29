@@ -1131,6 +1131,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50">
+        <Toaster position="top-right" />
         <div className="flex">
           {/* Desktop Sidebar */}
           <div className="hidden lg:block w-64 bg-white shadow-sm border-r">
