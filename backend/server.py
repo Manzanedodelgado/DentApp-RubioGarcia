@@ -1666,6 +1666,83 @@ async def get_sync_status():
         logger.error(f"Error getting sync status: {str(e)}")
         raise HTTPException(status_code=500, detail="Error getting sync status")
 
+# WhatsApp Routes
+@api_router.get("/whatsapp/status")
+async def get_whatsapp_status():
+    """Get WhatsApp connection status"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:3001/status", timeout=5.0)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error getting WhatsApp status: {str(e)}")
+        return {"connected": False, "status": "error", "error": str(e)}
+
+@api_router.get("/whatsapp/qr")
+async def get_whatsapp_qr():
+    """Get WhatsApp QR code for connection"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:3001/qr", timeout=5.0)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error getting WhatsApp QR: {str(e)}")
+        return {"qr": None, "error": str(e)}
+
+@api_router.post("/whatsapp/send")
+async def send_whatsapp_message(message_data: WhatsAppMessage):
+    """Send message via WhatsApp"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/send",
+                json={
+                    "phone_number": message_data.phone_number,
+                    "message": message_data.message
+                },
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp message: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending WhatsApp message")
+
+@api_router.post("/whatsapp/send-reminder")
+async def send_whatsapp_reminder(reminder_data: WhatsAppReminder):
+    """Send appointment reminder via WhatsApp"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/send-reminder",
+                json={
+                    "phone_number": reminder_data.phone_number,
+                    "appointment_data": reminder_data.appointment_data
+                },
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp reminder: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending WhatsApp reminder")
+
+@api_router.post("/whatsapp/send-consent")
+async def send_whatsapp_consent(reminder_data: WhatsAppReminder):
+    """Send surgery consent reminder via WhatsApp"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/send-consent",
+                json={
+                    "phone_number": reminder_data.phone_number,
+                    "appointment_data": reminder_data.appointment_data
+                },
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp consent: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending WhatsApp consent")
+
 # Settings Routes
 @api_router.get("/settings/clinic")
 async def get_clinic_settings():
