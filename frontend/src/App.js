@@ -1690,6 +1690,8 @@ function App() {
         return <Agenda />;
       case "communications":
         return <Communications />;
+      case "reminders":
+        return <Reminders />;
       case "messages":
         return <Messages />;
       case "ai-training":
