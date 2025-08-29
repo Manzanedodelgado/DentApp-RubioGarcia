@@ -1685,11 +1685,7 @@ const Reminders = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [selectedAppointments, setSelectedAppointments] = useState([]);
-  const [templates, setTemplates] = useState([
-    { id: 1, name: "Recordatorio Cita", content: "Hola {nombre}, te recordamos tu cita el {fecha} a las {hora} con {doctor} para {tratamiento}. ¡Te esperamos!" },
-    { id: 2, name: "Confirmación Cita", content: "Estimado/a {nombre}, por favor confirma tu asistencia a la cita del {fecha} a las {hora} con {doctor}." },
-    { id: 3, name: "Recordatorio Revisión", content: "Hola {nombre}, es momento de tu revisión anual. Contacta con nosotros para agendar tu cita." }
-  ]);
+  const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [loading, setLoading] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
@@ -1708,6 +1704,17 @@ const Reminders = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Fetch templates from backend
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/templates`);
+      setTemplates(response.data);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+      toast.error("Error cargando plantillas");
+    }
   };
 
   // Fetch appointments for selected date
