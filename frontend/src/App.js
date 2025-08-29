@@ -1636,26 +1636,60 @@ const Agenda = () => {
                     {/* Status Change Options */}
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-xs text-gray-500 mb-2">Cambiar estado:</p>
-                      <div className="flex space-x-2">
+                      <div className="flex flex-wrap gap-2">
                         <button 
-                          onClick={() => {/* TODO: Update status */}}
-                          className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"
+                          onClick={() => updateAppointmentStatus(appointment.id, 'scheduled')}
+                          disabled={updating === appointment.id || appointment.status === 'scheduled'}
+                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                            appointment.status === 'scheduled' 
+                              ? 'bg-blue-200 text-blue-800' 
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          } ${updating === appointment.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          📅 Planificada
+                          {updating === appointment.id ? '⏳' : '📅'} Planificada
                         </button>
                         <button 
-                          onClick={() => {/* TODO: Update status */}}
-                          className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200"
+                          onClick={() => updateAppointmentStatus(appointment.id, 'confirmed')}
+                          disabled={updating === appointment.id || appointment.status === 'confirmed'}
+                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                            appointment.status === 'confirmed' 
+                              ? 'bg-green-200 text-green-800' 
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          } ${updating === appointment.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          ✅ Confirmada
+                          {updating === appointment.id ? '⏳' : '✅'} Confirmada
                         </button>
                         <button 
-                          onClick={() => {/* TODO: Update status */}}
-                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-full hover:bg-red-200"
+                          onClick={() => updateAppointmentStatus(appointment.id, 'completed')}
+                          disabled={updating === appointment.id || appointment.status === 'completed'}
+                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                            appointment.status === 'completed' 
+                              ? 'bg-gray-200 text-gray-800' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          } ${updating === appointment.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          ❌ Cancelada
+                          {updating === appointment.id ? '⏳' : '✔️'} Completada
+                        </button>
+                        <button 
+                          onClick={() => updateAppointmentStatus(appointment.id, 'cancelled')}
+                          disabled={updating === appointment.id || appointment.status === 'cancelled'}
+                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                            appointment.status === 'cancelled' 
+                              ? 'bg-red-200 text-red-800' 
+                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          } ${updating === appointment.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {updating === appointment.id ? '⏳' : '❌'} Cancelada
                         </button>
                       </div>
+                      
+                      {/* Sync indicator */}
+                      {appointment.synced_to_sheets === false && (
+                        <p className="text-xs text-orange-600 mt-2 flex items-center">
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Cambio pendiente de sincronizar con Google Sheets
+                        </p>
+                      )}
                     </div>
 
                   </div>
