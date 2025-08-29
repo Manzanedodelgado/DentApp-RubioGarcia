@@ -2665,6 +2665,43 @@ const Messages = () => {
 
 // Main App Component with Authentication
 function App() {
+  useEffect(() => {
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
+    }
+
+    // Handle PWA install prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Show install button or notification
+      console.log('PWA install prompt available');
+    });
+  }, []);
+
+  // Check if this is the voice assistant widget route
+  const isVoiceWidget = window.location.pathname === '/voice-assistant';
+  
+  if (isVoiceWidget) {
+    return (
+      <div className="App">
+        <Toaster position="top-center" />
+        <VoiceAssistantWidget />
+      </div>
+    );
+  }
+
   return (
     <AuthProvider>
       <AuthenticatedApp />
