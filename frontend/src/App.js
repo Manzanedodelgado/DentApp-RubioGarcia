@@ -1825,7 +1825,7 @@ const Reminders = () => {
       const lines = text.split('\n').filter(line => line.trim());
       const header = lines[0].split(',');
       
-      const template = templates.find(t => t.id.toString() === selectedTemplate);
+      const template = templates.find(t => t.id === selectedTemplate);
       let processedCount = 0;
 
       for (let i = 1; i < lines.length; i++) {
@@ -1843,7 +1843,9 @@ const Reminders = () => {
             .replace(/{fecha}/g, record.fecha || '')
             .replace(/{hora}/g, record.hora || '')
             .replace(/{doctor}/g, record.doctor || '')
-            .replace(/{tratamiento}/g, record.tratamiento || '');
+            .replace(/{tratamiento}/g, record.tratamiento || '')
+            .replace(/{telefono}/g, record.telefono || '')
+            .replace(/{numpac}/g, record.numpac || '');
 
           console.log(`Sending CSV reminder to ${record.nombre}: ${message}`);
           processedCount++;
