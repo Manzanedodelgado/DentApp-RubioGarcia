@@ -156,11 +156,14 @@ backend:
     file: "backend/import_data.py, backend/.env"
     stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: false
         - agent: "testing"
         - comment: "❌ CRITICAL ISSUE: Google Sheets API calls failing with 'API_KEY_SERVICE_BLOCKED' error (403 Forbidden). System is using fallback data instead of real Google Sheets data. API key AIzaSyCSYOu9D-SdyPVnBoqV7ySdA2oUsX7k8wA is blocked/restricted. Backend logs show: 'Requests to this API sheets.googleapis.com method google.apps.sheets.v4.SpreadsheetsService.GetValues are blocked'. All 12 appointments currently in system match fallback data exactly. Need to fix Google Sheets API configuration to access real data from spreadsheet: https://docs.google.com/spreadsheets/d/1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ/edit"
+        - working: false
+        - agent: "testing"
+        - comment: "✅ IMPROVED INTEGRATION TESTED: The improved Google Sheets integration is working correctly with excellent duplicate prevention and data handling. ✅ Duplicate Prevention: Multiple sync calls create no duplicate contacts (11 contacts maintained across syncs) ✅ Date Ordering: All appointments properly ordered from January 2025 (2025-01-20 to 2025-01-30) ✅ Data Quality: All 12 appointments have proper titles, dates, contact names, and normalized statuses ✅ Date Filtering: All specific date queries work perfectly (tested 2025-01-20, 2025-01-22, 2025-01-25, 2025-01-29) ✅ Contact Management: No duplicate contacts, existing contacts reused properly. However, ❌ GOOGLE SHEETS API STILL BLOCKED: System continues using fallback data due to 'API_KEY_SERVICE_BLOCKED' error. The improved import logic works perfectly but needs real Google Sheets API access to be fully functional."
 
 frontend:
   - task: "Create Agenda section in navigation"
