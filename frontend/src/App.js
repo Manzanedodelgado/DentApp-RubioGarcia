@@ -726,8 +726,6 @@ const Communications = () => {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
   const [patientHistory, setPatientHistory] = useState([]);
-  const [showBulkReminders, setShowBulkReminders] = useState(false);
-  const [reminderTemplate, setReminderTemplate] = useState('');
 
   // Fetch contacts (patients)
   const fetchContacts = async () => {
@@ -784,47 +782,6 @@ const Communications = () => {
     }
   };
 
-  // Send bulk reminders
-  const sendBulkReminders = async () => {
-    if (!reminderTemplate.trim()) {
-      toast.error("Por favor escribe un mensaje de recordatorio");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Get appointments for tomorrow (example)
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
-      
-      const response = await axios.get(`${API}/appointments/by-date?date=${tomorrowStr}`);
-      const tomorrowAppointments = response.data;
-
-      // Send reminder to each patient
-      for (const appointment of tomorrowAppointments) {
-        const personalizedMessage = reminderTemplate
-          .replace('{nombre}', appointment.contact_name)
-          .replace('{fecha}', new Date(appointment.date).toLocaleDateString('es-ES'))
-          .replace('{hora}', appointment.time || '10:00')
-          .replace('{doctor}', appointment.doctor || 'Doctor')
-          .replace('{tratamiento}', appointment.treatment || 'Consulta');
-
-        // Here you would send via WhatsApp API
-        console.log(`Sending reminder to ${appointment.contact_name}: ${personalizedMessage}`);
-      }
-
-      toast.success(`Recordatorios enviados a ${tomorrowAppointments.length} pacientes`);
-      setShowBulkReminders(false);
-      setReminderTemplate('');
-    } catch (error) {
-      console.error("Error sending bulk reminders:", error);
-      toast.error("Error enviando recordatorios");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Format time
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('es-ES', {
@@ -872,16 +829,6 @@ const Communications = () => {
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Comunicaciones</h2>
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={() => setShowBulkReminders(true)}
-                size="sm"
-                variant="outline"
-                className="text-xs"
-              >
-                📢 Recordatorios
-              </Button>
-            </div>
           </div>
           
           {/* AI Toggle */}
@@ -1092,43 +1039,6 @@ const Communications = () => {
           </div>
         </div>
       )}
-
-      {/* Bulk Reminders Modal */}
-      <Dialog open={showBulkReminders} onOpenChange={setShowBulkReminders}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar Recordatorios Masivos</DialogTitle>
-            <DialogDescription>
-              Envía recordatorios a todos los pacientes con citas mañana
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="template">Plantilla de Mensaje</Label>
-              <Textarea
-                id="template"
-                value={reminderTemplate}
-                onChange={(e) => setReminderTemplate(e.target.value)}
-                placeholder="Hola {nombre}, te recordamos tu cita mañana {fecha} a las {hora} con {doctor} para {tratamiento}."
-                className="h-24"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Variables: {'{nombre}'}, {'{fecha}'}, {'{hora}'}, {'{doctor}'}, {'{tratamiento}'}
-              </p>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkReminders(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={sendBulkReminders} disabled={loading}>
-              {loading ? 'Enviando...' : 'Enviar Recordatorios'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
