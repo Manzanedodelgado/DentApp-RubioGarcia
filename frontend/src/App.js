@@ -29,9 +29,9 @@ const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <img 
-                src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/m626dk5o_IMG_0522.jpeg"
+                src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/tckikfmy_Logo%20blanco.jpeg"
                 alt="Rubio García Dental"
-                className="w-8 h-8 rounded-lg object-cover"
+                className="w-8 h-8 rounded-lg object-contain bg-blue-600 p-1"
               />
               <div>
                 <h1 className="text-sm font-bold text-blue-800">RUBIO GARCÍA</h1>
