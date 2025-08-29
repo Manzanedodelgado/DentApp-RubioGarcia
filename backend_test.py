@@ -2434,10 +2434,189 @@ class OmniDeskAPITester:
             print(f"❌ {self.tests_run - self.tests_passed} tests failed")
             return 1
 
+    def test_extended_range_doctor_column_verification(self):
+        """CRITICAL: Test extended range A:O to verify doctor column data is populated"""
+        print("\n" + "="*70)
+        print("🎯 EXTENDED RANGE A:O DOCTOR COLUMN VERIFICATION")
+        print("="*70)
+        print("CRITICAL CORRECTION: Range changed from A:K to A:O to include doctor column (Column L)")
+        print("EXPECTED: Doctor names like 'Dr. Mario Rubio', 'Dra. Irene Garcia' should be populated")
+        print("REQUIRED FIELDS: patient_number (D), phone (G), doctor (L), treatment (K), time (I), contact_name (E+F)")
+        
+        # Step 1: Fresh sync with extended range
+        print("\n📥 Step 1: Fresh sync with extended range A:O...")
+        success, sync_response = self.run_test(
+            "Fresh Sync with Extended Range (POST /api/appointments/sync)",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot trigger fresh sync")
+            return False
+        
+        print(f"   ✅ Sync response: {sync_response.get('message', 'No message')}")
+        
+        # Step 2: Get sample appointments to check for doctor data
+        print("\n🔍 Step 2: Checking sample appointments for doctor data...")
+        success, sample_appointments = self.run_test(
+            "Get Sample Appointments (Check Doctor Field)",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve appointments")
+            return False
+        
+        print(f"   📊 Retrieved {len(sample_appointments)} appointments")
+        
+        # Step 3: Analyze doctor field population
+        print("\n👨‍⚕️ Step 3: Analyzing doctor field population...")
+        
+        appointments_with_doctor = 0
+        appointments_with_patient_number = 0
+        appointments_with_phone = 0
+        appointments_with_treatment = 0
+        appointments_with_time = 0
+        
+        doctor_names_found = set()
+        sample_appointments_shown = 0
+        
+        for apt in sample_appointments:
+            # Check doctor field
+            doctor = apt.get('doctor', '').strip()
+            if doctor:
+                appointments_with_doctor += 1
+                doctor_names_found.add(doctor)
+            
+            # Check other required fields
+            if apt.get('patient_number', '').strip():
+                appointments_with_patient_number += 1
+            if apt.get('phone', '').strip():
+                appointments_with_phone += 1
+            if apt.get('treatment', '').strip():
+                appointments_with_treatment += 1
+            if apt.get('time', '').strip():
+                appointments_with_time += 1
+            
+            # Show first 5 appointments with details
+            if sample_appointments_shown < 5:
+                print(f"   📋 Sample {sample_appointments_shown + 1}:")
+                print(f"      Patient: {apt.get('contact_name', 'Unknown')}")
+                print(f"      Doctor: '{apt.get('doctor', 'MISSING')}' ({'✅' if apt.get('doctor', '').strip() else '❌'})")
+                print(f"      Patient#: '{apt.get('patient_number', 'MISSING')}' ({'✅' if apt.get('patient_number', '').strip() else '❌'})")
+                print(f"      Phone: '{apt.get('phone', 'MISSING')}' ({'✅' if apt.get('phone', '').strip() else '❌'})")
+                print(f"      Treatment: '{apt.get('treatment', 'MISSING')}' ({'✅' if apt.get('treatment', '').strip() else '❌'})")
+                print(f"      Time: '{apt.get('time', 'MISSING')}' ({'✅' if apt.get('time', '').strip() else '❌'})")
+                print()
+                sample_appointments_shown += 1
+        
+        total_appointments = len(sample_appointments)
+        
+        print(f"📊 FIELD POPULATION ANALYSIS:")
+        print(f"   👨‍⚕️ Doctor field: {appointments_with_doctor}/{total_appointments} ({appointments_with_doctor/total_appointments*100:.1f}%)")
+        print(f"   🆔 Patient number: {appointments_with_patient_number}/{total_appointments} ({appointments_with_patient_number/total_appointments*100:.1f}%)")
+        print(f"   📞 Phone: {appointments_with_phone}/{total_appointments} ({appointments_with_phone/total_appointments*100:.1f}%)")
+        print(f"   💊 Treatment: {appointments_with_treatment}/{total_appointments} ({appointments_with_treatment/total_appointments*100:.1f}%)")
+        print(f"   ⏰ Time: {appointments_with_time}/{total_appointments} ({appointments_with_time/total_appointments*100:.1f}%)")
+        
+        # Step 4: Check for expected doctor names
+        print(f"\n👨‍⚕️ Step 4: Doctor names found ({len(doctor_names_found)} unique):")
+        expected_doctors = ["Dr. Mario Rubio", "Dra. Irene Garcia"]
+        expected_found = 0
+        
+        for doctor in sorted(doctor_names_found):
+            is_expected = "🎯 EXPECTED" if doctor in expected_doctors else ""
+            print(f"   - '{doctor}' {is_expected}")
+            if doctor in expected_doctors:
+                expected_found += 1
+        
+        if not doctor_names_found:
+            print("   ❌ NO DOCTOR NAMES FOUND - Column L data missing!")
+        
+        # Step 5: Test specific date to verify all fields
+        print("\n🗓️ Step 5: Testing specific date for complete field verification...")
+        test_date = "2025-01-20"  # Known date with appointments
+        
+        success, date_appointments = self.run_test(
+            f"Get Appointments for {test_date} (Field Verification)",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": test_date}
+        )
+        
+        if success and date_appointments:
+            print(f"   ✅ Found {len(date_appointments)} appointments for {test_date}")
+            
+            for i, apt in enumerate(date_appointments[:2]):  # Show first 2
+                print(f"   📋 Appointment {i+1} on {test_date}:")
+                print(f"      Patient: {apt.get('contact_name', 'Unknown')}")
+                print(f"      Doctor: '{apt.get('doctor', 'MISSING')}'")
+                print(f"      Treatment: '{apt.get('treatment', 'MISSING')}'")
+                print(f"      Time: '{apt.get('time', 'MISSING')}'")
+                print(f"      Phone: '{apt.get('phone', 'MISSING')}'")
+                print(f"      Patient#: '{apt.get('patient_number', 'MISSING')}'")
+        else:
+            print(f"   ❌ No appointments found for {test_date}")
+        
+        # Step 6: Final verification summary
+        print("\n" + "="*70)
+        print("📋 EXTENDED RANGE VERIFICATION SUMMARY")
+        print("="*70)
+        
+        # Success criteria
+        doctor_field_success = appointments_with_doctor > 0
+        expected_doctors_found = expected_found > 0
+        all_fields_populated = (appointments_with_patient_number > 0 and 
+                               appointments_with_phone > 0 and 
+                               appointments_with_treatment > 0 and 
+                               appointments_with_time > 0)
+        
+        print(f"✅ Doctor field populated: {'YES' if doctor_field_success else 'NO'} ({appointments_with_doctor}/{total_appointments})")
+        print(f"✅ Expected doctors found: {'YES' if expected_doctors_found else 'NO'} ({expected_found}/2)")
+        print(f"✅ All required fields populated: {'YES' if all_fields_populated else 'NO'}")
+        
+        if doctor_field_success and expected_doctors_found:
+            print("🎉 SUCCESS: Extended range A:O working - Doctor data populated!")
+            print(f"   👨‍⚕️ Doctor names found: {', '.join(list(doctor_names_found)[:3])}")
+            return True
+        else:
+            print("❌ FAILURE: Extended range A:O not working properly")
+            if not doctor_field_success:
+                print("   🚨 Doctor field is empty - Column L data not being imported")
+            if not expected_doctors_found:
+                print("   🚨 Expected doctor names not found")
+            return False
+
 def main():
-    """Main function to run the review request test"""
+    """Main function to run the extended range doctor column verification test"""
     tester = OmniDeskAPITester()
-    return 0 if tester.run_review_request_test() else 1
+    
+    print("🎯 Running Extended Range A:O Doctor Column Verification...")
+    print("=" * 80)
+    
+    try:
+        success = tester.test_extended_range_doctor_column_verification()
+        
+        print("\n" + "="*80)
+        print("📊 EXTENDED RANGE VERIFICATION SUMMARY")
+        print("="*80)
+        print(f"✅ Tests passed: {tester.tests_passed}/{tester.tests_run}")
+        
+        if success:
+            print("🎉 Extended Range A:O Doctor Column Verification: PASSED")
+        else:
+            print("❌ Extended Range A:O Doctor Column Verification: FAILED")
+        
+        return 0 if success else 1
+        
+    except Exception as e:
+        print(f"❌ Extended Range Verification failed with exception: {str(e)}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
