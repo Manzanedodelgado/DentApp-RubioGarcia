@@ -810,12 +810,18 @@ async def get_dashboard_stats():
     
     ai_conversations = await db.chat_sessions.count_documents({"is_active": True})
     
+    # Add pending conversations count
+    urgent_conversations = await db.conversation_status.count_documents({
+        "urgency_color": "red",
+        "pending_response": True
+    })
+    
     return DashboardStats(
         total_contacts=total_contacts,
         active_contacts=active_contacts,
         total_appointments=total_appointments,
         today_appointments=today_appointments,
-        pending_messages=pending_messages,
+        pending_messages=pending_messages + urgent_conversations,
         active_campaigns=active_campaigns,
         ai_conversations=ai_conversations,
         whatsapp_connected=False
