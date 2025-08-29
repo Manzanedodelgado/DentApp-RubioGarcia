@@ -1176,10 +1176,190 @@ class OmniDeskAPITester:
             print("❌ IMPROVED GOOGLE SHEETS INTEGRATION: ISSUES DETECTED")
             return False
 
+    def test_new_google_sheets_api_key(self):
+        """URGENT: Test new Google Sheets API key for real data import"""
+        print("\n" + "="*70)
+        print("🚨 URGENT: TESTING NEW GOOGLE SHEETS API KEY")
+        print("="*70)
+        print("NEW API KEY: AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A")
+        print("GOOGLE SHEET: https://docs.google.com/spreadsheets/d/1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ/edit")
+        print("GOAL: Verify we get REAL data from Google Sheets, not fallback data")
+        
+        # Step 1: Trigger fresh import with new API key
+        print("\n📥 Step 1: Triggering fresh import with new API key...")
+        success, sync_response = self.run_test(
+            "Fresh Sync with New API Key (POST /api/appointments/sync)",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot trigger sync with new API key")
+            return False
+        
+        print(f"   ✅ Sync response: {sync_response.get('message', 'No message')}")
+        
+        # Step 2: Get all appointments to check for real vs fallback data
+        print("\n📊 Step 2: Checking for REAL vs FALLBACK data...")
+        success, all_appointments = self.run_test(
+            "Get All Appointments (Check Real Data)",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve appointments")
+            return False
+        
+        print(f"   📊 Total appointments found: {len(all_appointments)}")
+        
+        # Step 3: Analyze data to detect if it's real or fallback
+        print("\n🔍 Step 3: Analyzing data source (Real vs Fallback)...")
+        
+        # Known fallback patient names (from import_data.py)
+        fallback_names = [
+            "Benita Posado Jañez", "Natalia Gonzalez Diez", "Angeles Salvador Fernandez",
+            "Rehan Nisar", "Samuel Prieto Serrano", "Eloy Perez Gonzalez",
+            "Lidia Sanchez Pascual", "Nashla Teresa Geronimo Gonzalez", 
+            "Juana Perez Murillo", "Gloria Benavente", "Eva Calero Alia"
+        ]
+        
+        appointment_names = [apt.get('contact_name', '') for apt in all_appointments]
+        fallback_matches = [name for name in appointment_names if name in fallback_names]
+        
+        print(f"   📋 Appointment names found: {len(set(appointment_names))} unique names")
+        print(f"   🔍 Fallback name matches: {len(fallback_matches)}")
+        
+        # If we have mostly fallback names, we're still using fallback data
+        fallback_percentage = len(fallback_matches) / len(appointment_names) if appointment_names else 0
+        
+        if fallback_percentage > 0.8:  # More than 80% fallback names
+            print(f"   ❌ STILL USING FALLBACK DATA: {fallback_percentage:.1%} of names match fallback data")
+            print("   🚨 Google Sheets API is likely still blocked or not working")
+            
+            # Show some example names
+            print("   📝 Sample names found:")
+            for name in list(set(appointment_names))[:5]:
+                is_fallback = "🔴 FALLBACK" if name in fallback_names else "🟢 REAL"
+                print(f"      - {name} {is_fallback}")
+            
+            return False
+        else:
+            print(f"   ✅ REAL DATA DETECTED: Only {fallback_percentage:.1%} fallback names found")
+            print("   🎉 Google Sheets API is working with real data!")
+        
+        # Step 4: Verify date ordering from January 1, 2025
+        print("\n📅 Step 4: Verifying date ordering from January 1, 2025...")
+        
+        dates = []
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                dates.append(apt_date[:10])  # Extract date part
+        
+        if dates:
+            earliest_date = min(dates)
+            latest_date = max(dates)
+            print(f"   📅 Date range: {earliest_date} to {latest_date}")
+            
+            # Check if we start from January 1, 2025 as requested
+            if earliest_date >= '2025-01-01':
+                print("   ✅ DATE RANGE CORRECT: Appointments start from January 1, 2025 or later")
+            else:
+                print(f"   ⚠️ Unexpected early date: {earliest_date}")
+            
+            # Verify proper ordering
+            sorted_dates = sorted(dates)
+            if dates == sorted_dates:
+                print("   ✅ DATE ORDERING: Appointments properly ordered by 'Fecha' column")
+            else:
+                print("   ❌ DATE ORDERING ISSUE: Appointments not properly ordered")
+        
+        # Step 5: Check for no duplicate patients
+        print("\n👥 Step 5: Verifying no duplicate patients...")
+        success, all_contacts = self.run_test(
+            "Get All Contacts (Duplicate Check)",
+            "GET",
+            "contacts",
+            200
+        )
+        
+        if success:
+            contact_names = [c.get('name', '') for c in all_contacts]
+            unique_names = set(contact_names)
+            
+            print(f"   📊 Total contacts: {len(contact_names)}")
+            print(f"   📊 Unique names: {len(unique_names)}")
+            
+            if len(contact_names) == len(unique_names):
+                print("   ✅ NO DUPLICATES: All patient names are unique")
+            else:
+                duplicates = len(contact_names) - len(unique_names)
+                print(f"   ❌ DUPLICATES FOUND: {duplicates} duplicate names detected")
+        
+        # Step 6: Test specific date queries for early January 2025
+        print("\n🗓️ Step 6: Testing specific date queries for early January 2025...")
+        
+        early_january_dates = ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04", "2025-01-05"]
+        real_data_dates_found = 0
+        
+        for test_date in early_january_dates:
+            success, date_appointments = self.run_test(
+                f"Query Date {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success and len(date_appointments) > 0:
+                real_data_dates_found += 1
+                print(f"   ✅ {test_date}: Found {len(date_appointments)} appointments")
+                
+                # Check if these are real names (not fallback)
+                date_names = [apt.get('contact_name', '') for apt in date_appointments]
+                real_names = [name for name in date_names if name not in fallback_names]
+                if real_names:
+                    print(f"      🟢 Real patient names found: {real_names[:2]}")
+            else:
+                print(f"   📅 {test_date}: No appointments (expected if real data starts later)")
+        
+        # Step 7: Final verification - check for success logs
+        print("\n📋 Step 7: Final verification summary...")
+        
+        success_indicators = [
+            fallback_percentage < 0.5,  # Less than 50% fallback names
+            len(all_appointments) > 0,  # We have appointments
+            len(unique_names) > 0 if 'unique_names' in locals() else True,  # We have contacts
+            earliest_date >= '2025-01-01' if dates else True  # Proper date range
+        ]
+        
+        passed_indicators = sum(success_indicators)
+        total_indicators = len(success_indicators)
+        
+        print(f"   📊 Success indicators: {passed_indicators}/{total_indicators}")
+        
+        if passed_indicators >= 3:  # At least 3 out of 4 indicators
+            print("   🎉 NEW GOOGLE SHEETS API KEY: WORKING SUCCESSFULLY!")
+            print("   ✅ Real data is being imported from Google Sheets")
+            return True
+        else:
+            print("   ❌ NEW GOOGLE SHEETS API KEY: STILL ISSUES DETECTED")
+            print("   🚨 May still be using fallback data or API blocked")
+            return False
+
     def run_all_tests(self):
-        """Run all API tests with focus on improved Google Sheets integration"""
+        """Run all API tests with focus on NEW Google Sheets API key testing"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
+        
+        # URGENT PRIORITY: Test new Google Sheets API key
+        print("\n🚨 URGENT PRIORITY: TESTING NEW GOOGLE SHEETS API KEY")
+        if not self.test_new_google_sheets_api_key():
+            print("❌ CRITICAL: New Google Sheets API key tests failed")
+            return 1
         
         # PRIORITY: Test improved Google Sheets integration
         print("\n🎯 PRIORITY: TESTING IMPROVED GOOGLE SHEETS INTEGRATION")
