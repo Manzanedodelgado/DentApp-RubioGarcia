@@ -12,7 +12,8 @@ const WhatsAppManager = () => {
   const [testPhone, setTestPhone] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
   
-  const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
 
   useEffect(() => {
     fetchStatus();
