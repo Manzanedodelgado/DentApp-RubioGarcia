@@ -1350,13 +1350,190 @@ class OmniDeskAPITester:
             print("   🚨 May still be using fallback data or API blocked")
             return False
 
+    def test_find_real_appointment_dates(self):
+        """URGENT: Find exact dates where real appointments exist for frontend calendar"""
+        print("\n" + "="*70)
+        print("🚨 URGENT: FIND REAL APPOINTMENT DATES")
+        print("="*70)
+        print("PROBLEM: Frontend shows 'No appointments' but backend imported 1,000 real appointments")
+        print("GOAL: Find exact dates where appointments exist for frontend calendar")
+        
+        # Step 1: Get sample of real appointments (first 20)
+        print("\n📥 Step 1: Getting sample of real appointments (first 20)...")
+        success, sample_appointments = self.run_test(
+            "Get Sample Appointments (limit=20)",
+            "GET",
+            "appointments",
+            200,
+            params={"limit": "20"}
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve sample appointments")
+            return False
+        
+        print(f"   📊 Retrieved {len(sample_appointments)} sample appointments")
+        
+        # Analyze sample dates
+        sample_dates = []
+        for apt in sample_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                date_part = apt_date[:10]  # Extract YYYY-MM-DD
+                sample_dates.append(date_part)
+                print(f"   📅 {date_part} | {apt.get('contact_name', 'Unknown')} | {apt.get('title', 'No title')}")
+        
+        if not sample_dates:
+            print("❌ CRITICAL: No dates found in sample appointments")
+            return False
+        
+        # Find earliest and most common dates
+        earliest_date = min(sample_dates)
+        latest_date = max(sample_dates)
+        unique_dates = list(set(sample_dates))
+        
+        print(f"\n📊 SAMPLE ANALYSIS:")
+        print(f"   📅 Earliest date: {earliest_date}")
+        print(f"   📅 Latest date: {latest_date}")
+        print(f"   📅 Unique dates in sample: {len(unique_dates)}")
+        print(f"   📅 Sample dates: {sorted(unique_dates)[:10]}")
+        
+        # Step 2: Test specific early dates as requested
+        print("\n🗓️ Step 2: Testing specific early dates...")
+        test_dates = ["2025-01-02", "2025-01-03", "2025-01-07"]
+        
+        found_dates = []
+        for test_date in test_dates:
+            success, date_appointments = self.run_test(
+                f"Test Date {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success:
+                appointment_count = len(date_appointments)
+                print(f"   ✅ {test_date}: Found {appointment_count} appointments")
+                
+                if appointment_count > 0:
+                    found_dates.append(test_date)
+                    # Show first few appointments for this date
+                    for apt in date_appointments[:3]:
+                        print(f"      - {apt.get('contact_name', 'Unknown')}: {apt.get('title', 'No title')}")
+                else:
+                    print(f"   📅 {test_date}: No appointments found")
+            else:
+                print(f"   ❌ {test_date}: API error")
+        
+        # Step 3: Get ALL appointments and analyze date distribution
+        print("\n📊 Step 3: Analyzing complete date distribution...")
+        success, all_appointments = self.run_test(
+            "Get ALL Appointments for Distribution Analysis",
+            "GET",
+            "appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve all appointments")
+            return False
+        
+        print(f"   📊 Total appointments in database: {len(all_appointments)}")
+        
+        # Analyze date distribution
+        date_counts = {}
+        month_counts = {}
+        
+        for apt in all_appointments:
+            apt_date = apt.get('date', '')
+            if apt_date:
+                date_part = apt_date[:10]  # YYYY-MM-DD
+                month_part = apt_date[:7]  # YYYY-MM
+                
+                date_counts[date_part] = date_counts.get(date_part, 0) + 1
+                month_counts[month_part] = month_counts.get(month_part, 0) + 1
+        
+        # Find month with most appointments
+        if month_counts:
+            busiest_month = max(month_counts.items(), key=lambda x: x[1])
+            print(f"   📅 Busiest month: {busiest_month[0]} with {busiest_month[1]} appointments")
+        
+        # Find dates with most appointments
+        sorted_dates = sorted(date_counts.items(), key=lambda x: x[1], reverse=True)
+        print(f"\n📅 TOP 10 DATES WITH MOST APPOINTMENTS:")
+        for date, count in sorted_dates[:10]:
+            print(f"   📅 {date}: {count} appointments")
+        
+        # Find best starting date for calendar (earliest date with appointments)
+        if date_counts:
+            earliest_with_appointments = min(date_counts.keys())
+            print(f"\n📅 BEST STARTING DATE FOR CALENDAR: {earliest_with_appointments}")
+            print(f"   📊 This date has {date_counts[earliest_with_appointments]} appointments")
+        
+        # Step 4: Test the earliest dates to confirm they work
+        print("\n🔍 Step 4: Testing earliest dates to confirm they work...")
+        early_dates_to_test = sorted(date_counts.keys())[:5]  # First 5 dates
+        
+        working_early_dates = []
+        for test_date in early_dates_to_test:
+            success, date_appointments = self.run_test(
+                f"Confirm Early Date {test_date}",
+                "GET",
+                "appointments/by-date",
+                200,
+                params={"date": test_date}
+            )
+            
+            if success and len(date_appointments) > 0:
+                working_early_dates.append(test_date)
+                print(f"   ✅ {test_date}: CONFIRMED - {len(date_appointments)} appointments")
+                
+                # Show sample appointments
+                for apt in date_appointments[:2]:
+                    print(f"      - {apt.get('contact_name', 'Unknown')}: {apt.get('title', 'No title')}")
+            else:
+                print(f"   ❌ {test_date}: Failed to retrieve appointments")
+        
+        # Step 5: Final recommendations
+        print("\n" + "="*70)
+        print("📋 REAL APPOINTMENT DATES FOUND - RECOMMENDATIONS")
+        print("="*70)
+        
+        if working_early_dates:
+            recommended_start_date = working_early_dates[0]
+            print(f"🎯 RECOMMENDED START DATE: {recommended_start_date}")
+            print(f"   📊 This date has {date_counts.get(recommended_start_date, 0)} appointments")
+            
+            print(f"\n📅 CONFIRMED WORKING DATES FOR FRONTEND:")
+            for date in working_early_dates:
+                count = date_counts.get(date, 0)
+                print(f"   ✅ {date}: {count} appointments")
+            
+            print(f"\n📊 SUMMARY FOR FRONTEND DEVELOPERS:")
+            print(f"   📅 Total appointments available: {len(all_appointments)}")
+            print(f"   📅 Date range: {min(date_counts.keys())} to {max(date_counts.keys())}")
+            print(f"   📅 Total unique dates: {len(date_counts)}")
+            print(f"   📅 Busiest month: {busiest_month[0]} ({busiest_month[1]} appointments)")
+            
+            return True
+        else:
+            print("❌ CRITICAL: No working dates found")
+            return False
+
     def run_all_tests(self):
-        """Run all API tests with focus on NEW Google Sheets API key testing"""
+        """Run all API tests with focus on finding real appointment dates"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite")
         print(f"Backend URL: {self.base_url}")
         
-        # URGENT PRIORITY: Test new Google Sheets API key
-        print("\n🚨 URGENT PRIORITY: TESTING NEW GOOGLE SHEETS API KEY")
+        # URGENT PRIORITY: Find real appointment dates
+        print("\n🚨 URGENT PRIORITY: FIND REAL APPOINTMENT DATES")
+        if not self.test_find_real_appointment_dates():
+            print("❌ CRITICAL: Could not find real appointment dates")
+            return 1
+        
+        # SECONDARY: Test new Google Sheets API key
+        print("\n🎯 SECONDARY: TESTING NEW GOOGLE SHEETS API KEY")
         if not self.test_new_google_sheets_api_key():
             print("❌ CRITICAL: New Google Sheets API key tests failed")
             return 1
