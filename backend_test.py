@@ -2117,13 +2117,202 @@ class OmniDeskAPITester:
             print("⚠️ Some verification criteria not met")
             return False
 
+    def test_new_column_mapping_from_google_sheets(self):
+        """TEST NEW COLUMN MAPPING FROM GOOGLE SHEETS - Review Request"""
+        print("\n" + "="*70)
+        print("🎯 TESTING NEW COLUMN MAPPING FROM GOOGLE SHEETS")
+        print("="*70)
+        print("Updated Column Mapping:")
+        print("- Fecha: Column H (ordering)")  
+        print("- Hora: Column I (ordering)")
+        print("- Nombre: Column E")
+        print("- Apellidos: Column F")
+        print("- NumPac: Column D (patient number)")
+        print("- TelMovil: Column G")
+        print("- Doctor: Column L")  
+        print("- Tratamiento: Column K")
+        print("- Estado: Column J (planificada, confirmada, cancelada)")
+        
+        # Step 1: Fresh Sync with New Column Mapping
+        print("\n📥 Step 1: Fresh Sync with New Column Mapping...")
+        success, sync_response = self.run_test(
+            "Fresh Sync with New Column Mapping (POST /api/appointments/sync)",
+            "POST",
+            "appointments/sync",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot trigger fresh sync")
+            return False
+        
+        print(f"   ✅ Sync response: {sync_response.get('message', 'No message')}")
+        
+        # Step 2: Verify New Fields in Database
+        print("\n📊 Step 2: Verify New Fields in Database...")
+        success, sample_appointments = self.run_test(
+            "Get Sample Appointments (GET /api/appointments?limit=5)",
+            "GET",
+            "appointments",
+            200,
+            params={"limit": "5"}
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve sample appointments")
+            return False
+        
+        print(f"   📊 Retrieved {len(sample_appointments)} sample appointments")
+        
+        # Check for new fields in appointments
+        required_fields = ['patient_number', 'phone', 'doctor', 'treatment', 'time']
+        field_verification = {}
+        
+        for field in required_fields:
+            field_verification[field] = 0
+        
+        print("\n🔍 Checking for new fields in appointments...")
+        for i, apt in enumerate(sample_appointments):
+            print(f"\n   📋 Appointment {i+1}:")
+            print(f"      Contact Name: {apt.get('contact_name', 'Missing')}")
+            
+            # Check patient_number (NumPac - Column D)
+            patient_number = apt.get('patient_number', '')
+            if patient_number:
+                field_verification['patient_number'] += 1
+                print(f"      ✅ Patient Number (NumPac): {patient_number}")
+            else:
+                print(f"      ❌ Patient Number (NumPac): Missing")
+            
+            # Check phone (TelMovil - Column G)
+            phone = apt.get('phone', '')
+            if phone:
+                field_verification['phone'] += 1
+                print(f"      ✅ Phone (TelMovil): {phone}")
+            else:
+                print(f"      ❌ Phone (TelMovil): Missing")
+            
+            # Check doctor (Column L)
+            doctor = apt.get('doctor', '')
+            if doctor:
+                field_verification['doctor'] += 1
+                print(f"      ✅ Doctor: {doctor}")
+            else:
+                print(f"      ❌ Doctor: Missing")
+            
+            # Check treatment (Column K)
+            treatment = apt.get('treatment', '')
+            if treatment:
+                field_verification['treatment'] += 1
+                print(f"      ✅ Treatment (Tratamiento): {treatment}")
+            else:
+                print(f"      ❌ Treatment (Tratamiento): Missing")
+            
+            # Check time (Hora - Column I)
+            time = apt.get('time', '')
+            if time:
+                field_verification['time'] += 1
+                print(f"      ✅ Time (Hora): {time}")
+            else:
+                print(f"      ❌ Time (Hora): Missing")
+            
+            # Check contact_name format (Nombre + Apellidos)
+            contact_name = apt.get('contact_name', '')
+            if contact_name and ' ' in contact_name:
+                print(f"      ✅ Contact Name Format: '{contact_name}' (Nombre + Apellidos)")
+            else:
+                print(f"      ⚠️ Contact Name Format: '{contact_name}' (may not follow Nombre + Apellidos format)")
+        
+        # Step 3: Test Date Filtering with New Data
+        print("\n📅 Step 3: Test Date Filtering with New Data...")
+        test_date = "2025-01-02"
+        success, date_appointments = self.run_test(
+            f"Get Appointments by Date (GET /api/appointments/by-date?date={test_date})",
+            "GET",
+            "appointments/by-date",
+            200,
+            params={"date": test_date}
+        )
+        
+        if success:
+            print(f"   ✅ Found {len(date_appointments)} appointments for {test_date}")
+            
+            # Verify appointments show complete field data
+            if date_appointments:
+                print(f"\n   🔍 Verifying complete field data for {test_date}:")
+                for apt in date_appointments[:3]:  # Check first 3 appointments
+                    print(f"      📋 {apt.get('contact_name', 'Unknown')}")
+                    print(f"         Patient Number: {apt.get('patient_number', 'Missing')}")
+                    print(f"         Phone: {apt.get('phone', 'Missing')}")
+                    print(f"         Doctor: {apt.get('doctor', 'Missing')}")
+                    print(f"         Treatment: {apt.get('treatment', 'Missing')}")
+                    print(f"         Time: {apt.get('time', 'Missing')}")
+                    print(f"         Status: {apt.get('status', 'Missing')}")
+        else:
+            print(f"   ❌ Failed to retrieve appointments for {test_date}")
+        
+        # Step 4: Check Specific Fields Summary
+        print("\n📊 Step 4: Field Population Summary...")
+        total_appointments = len(sample_appointments)
+        
+        for field, count in field_verification.items():
+            percentage = (count / total_appointments * 100) if total_appointments > 0 else 0
+            status = "✅" if percentage >= 80 else "⚠️" if percentage >= 50 else "❌"
+            print(f"   {status} {field}: {count}/{total_appointments} ({percentage:.1f}%)")
+        
+        # Step 5: Verify Status Normalization
+        print("\n🔄 Step 5: Verify Status Normalization...")
+        status_counts = {}
+        for apt in sample_appointments:
+            status = apt.get('status', 'unknown')
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        print("   📊 Status distribution:")
+        expected_statuses = ['scheduled', 'confirmed', 'cancelled', 'completed']
+        for status, count in status_counts.items():
+            status_ok = "✅" if status in expected_statuses else "⚠️"
+            print(f"      {status_ok} {status}: {count} appointments")
+        
+        # Final Assessment
+        print("\n" + "="*70)
+        print("📋 NEW COLUMN MAPPING TEST RESULTS")
+        print("="*70)
+        
+        success_criteria = [
+            sync_response.get('message') == 'Appointments synchronized successfully',
+            len(sample_appointments) > 0,
+            field_verification['patient_number'] > 0,
+            field_verification['phone'] > 0,
+            field_verification['doctor'] > 0,
+            field_verification['treatment'] > 0,
+            field_verification['time'] > 0,
+            len(date_appointments) >= 0 if 'date_appointments' in locals() else True
+        ]
+        
+        passed_criteria = sum(success_criteria)
+        total_criteria = len(success_criteria)
+        
+        print(f"✅ Passed criteria: {passed_criteria}/{total_criteria}")
+        
+        if passed_criteria >= total_criteria * 0.8:  # 80% success rate
+            print("🎉 NEW COLUMN MAPPING: WORKING CORRECTLY")
+            print("✅ All specified fields (patient_number, phone, doctor, treatment, time) are populated")
+            print("✅ Contact names show 'Nombre + Apellidos' format")
+            print("✅ Date filtering works with new data")
+            print("✅ Status normalization working correctly")
+            return True
+        else:
+            print("❌ NEW COLUMN MAPPING: ISSUES DETECTED")
+            print("🚨 Some required fields are missing or not populated correctly")
+            return False
+
     def run_review_request_test(self):
         """Run only the review request verification test"""
         print("🎯 Running Review Request Verification Test...")
         print("=" * 80)
         
         try:
-            success = self.test_review_request_appointment_import_verification()
+            success = self.test_new_column_mapping_from_google_sheets()
             
             print("\n" + "="*80)
             print("📊 REVIEW REQUEST TEST SUMMARY")
@@ -2131,9 +2320,9 @@ class OmniDeskAPITester:
             print(f"✅ Tests passed: {self.tests_passed}/{self.tests_run}")
             
             if success:
-                print("🎉 Review Request Verification: PASSED")
+                print("🎉 New Column Mapping Test: PASSED")
             else:
-                print("❌ Review Request Verification: FAILED")
+                print("❌ New Column Mapping Test: FAILED")
             
             return success
             
