@@ -488,6 +488,9 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* PWA Install Prompt */}
+      <PWAInstallButton />
+
       {/* Stats Cards - Responsive Grid */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
