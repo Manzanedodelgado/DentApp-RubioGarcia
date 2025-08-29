@@ -1921,7 +1921,7 @@ const Reminders = () => {
             <div className="p-3 bg-gray-50 rounded-lg">
               <Label className="text-sm font-medium">Vista previa:</Label>
               <p className="text-sm text-gray-600 mt-1">
-                {templates.find(t => t.id.toString() === selectedTemplate)?.content}
+                {templates.find(t => t.id === selectedTemplate)?.content}
               </p>
             </div>
           )}
