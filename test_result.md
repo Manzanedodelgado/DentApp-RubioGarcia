@@ -377,6 +377,18 @@ test_plan:
         - agent: "testing"
         - comment: "✅ COMPLETE SETTINGS SYSTEM TESTING SUCCESSFUL - ALL REQUIREMENTS MET PERFECTLY! ✅ CLINIC SETTINGS: GET/PUT /api/settings/clinic working with real clinic data (name, address, phone, team) ✅ AI SETTINGS: GET/PUT /api/settings/ai working with model configuration (gpt-4o-mini, temperature, prompts) ✅ AUTOMATION SETTINGS: GET/POST /api/settings/automations managing automation rules correctly ✅ DEFAULT DATA CREATION: System creates default settings when none exist ✅ DATA PERSISTENCE: All settings saved to MongoDB and retrieved correctly ✅ REAL CLINIC INFO: Pre-populated with authentic RUBIO GARCÍA DENTAL information ✅ AI MODEL SUPPORT: Multiple AI models supported (OpenAI, Claude, Gemini) ✅ SETTINGS UPDATES: All PUT operations update settings successfully ✅ ERROR HANDLING: Robust validation and error handling for all endpoints. The complete settings configuration system is PRODUCTION READY!"
 
+  - task: "Test new Settings (Configuración) section with AI assistant and voice capabilities"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/App.js, frontend/src/components/ui/settings.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Implemented complete Settings system with 4 tabs: Información Clínica (pre-populated with rubiogarciadental.com data), Asistente de IA (model selection, temperature, prompts), Automatizaciones (appointment reminders, surgery consents), and Asistente de Voz (microphone detection, voice commands). Added floating voice button and comprehensive settings management. Needs comprehensive testing of all tabs, navigation, form functionality, and voice features."
+
 agent_communication:
     - agent: "main"
     - message: "Frontend Agenda component implemented but navigation issue detected. Agenda button appears in sidebar but clicking doesn't switch to Agenda view. Need testing agent to diagnose navigation problem and test calendar/appointment functionality once fixed."
