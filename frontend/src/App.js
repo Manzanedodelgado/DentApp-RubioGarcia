@@ -1862,10 +1862,14 @@ const Reminders = () => {
     }
   };
 
-  // Load appointments when date changes
+  // Load appointments and templates when date changes
   useEffect(() => {
     fetchAppointments(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
 
   const allSelected = selectedAppointments.length === appointments.length && appointments.length > 0;
 
