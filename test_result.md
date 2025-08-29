@@ -255,11 +255,16 @@ frontend:
 
 metadata:
   created_by: "main_agent"
-  version: "1.1"
-  test_sequence: 1
+  version: "1.2"
+  test_sequence: 2
   run_ui: false
 
-  - task: "Test rebuilt simple Agenda component"
+test_plan:
+  current_focus:
+    - "Communications module testing complete"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
     implemented: true
     working: true
     file: "frontend/src/App.js"
