@@ -839,9 +839,9 @@ function App() {
             <div className="p-6">
               <div className="flex items-center space-x-3">
                 <img 
-                  src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/m626dk5o_IMG_0522.jpeg"
+                  src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/tckikfmy_Logo%20blanco.jpeg"
                   alt="Rubio García Dental"
-                  className="w-10 h-10 rounded-lg object-cover"
+                  className="w-10 h-10 rounded-lg object-contain bg-blue-600 p-2"
                 />
                 <div>
                   <h1 className="text-lg font-bold text-blue-800">RUBIO GARCÍA</h1>
