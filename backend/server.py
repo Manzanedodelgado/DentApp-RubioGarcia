@@ -1680,18 +1680,29 @@ RUBIO GARCÍA DENTAL
         logger.error(f"Error in surgery reminders: {str(e)}")
 
 def start_scheduler():
-    """Start the appointment sync scheduler"""
+    """Start the appointment sync and automation scheduler"""
     global scheduler
     if scheduler is None:
         scheduler = AsyncIOScheduler()
+        
+        # Appointment sync every 5 minutes
         scheduler.add_job(
             sync_job,
             trigger=IntervalTrigger(minutes=5),
             id='appointment_sync',
             replace_existing=True
         )
+        
+        # Automation processing every hour
+        scheduler.add_job(
+            automation_job,
+            trigger=CronTrigger(minute=0),  # Run every hour at minute 0
+            id='automation_processing',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        logger.info("🚀 Appointment sync scheduler started (every 5 minutes)")
+        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly)")
 
 def stop_scheduler():
     """Stop the appointment sync scheduler"""
