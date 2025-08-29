@@ -1377,17 +1377,80 @@ async def voice_assistant(request: VoiceAssistantRequest):
         # Get AI response
         response = await chat.send_message(user_message)
         
-        # Analyze response for actions
+        # Analyze response for actions and urgency
         action_type = None
         extracted_data = {}
+        urgency_color = "gray"
+        pain_level = None
         
-        # Simple action detection
-        if any(keyword in request.message.lower() for keyword in ["envía mensaje", "mandar mensaje", "enviar mensaje"]):
-            action_type = "send_message"
-        elif any(keyword in request.message.lower() for keyword in ["programa recordatorio", "recordatorio", "recordar"]):
-            action_type = "schedule_reminder"
-        elif any(keyword in request.message.lower() for keyword in ["agendar cita", "programar cita", "nueva cita"]):
-            action_type = "schedule_appointment"
+        # Extract pain level if mentioned
+        import re
+        pain_match = re.search(r'\b([1-9]|10)\b.*dolor|dolor.*\b([1-9]|10)\b', request.message.lower())
+        if pain_match:
+            pain_level = int(pain_match.group(1) or pain_match.group(2))
+            if pain_level >= 8:
+                action_type = "URGENCIA"
+                urgency_color = "red"
+            elif pain_level >= 5:
+                urgency_color = "yellow"
+        
+        # Action detection based on message content
+        if action_type != "URGENCIA":
+            if any(keyword in request.message.lower() for keyword in ["envía mensaje", "mandar mensaje", "enviar mensaje"]):
+                action_type = "send_message"
+            elif any(keyword in request.message.lower() for keyword in ["programa recordatorio", "recordatorio", "recordar"]):
+                action_type = "schedule_reminder"
+            elif any(keyword in request.message.lower() for keyword in ["agendar cita", "programar cita", "nueva cita", "cita"]):
+                action_type = "CITA_REGULAR"
+                urgency_color = "black"
+            elif any(keyword in request.message.lower() for keyword in ["información", "horario", "precio", "tratamiento"]):
+                action_type = "INFO_GENERAL"
+        
+        # Specialty detection
+        specialty_needed = None
+        if any(keyword in request.message.lower() for keyword in ["duele", "dolor de muela", "nervio", "endodoncia"]):
+            specialty_needed = "Endodoncia"
+        elif any(keyword in request.message.lower() for keyword in ["bracket", "ortodoncia", "alinear", "enderezar"]):
+            specialty_needed = "Ortodoncia"
+        elif any(keyword in request.message.lower() for keyword in ["implante", "falta diente", "perdí"]):
+            specialty_needed = "Implantología"
+        elif any(keyword in request.message.lower() for keyword in ["blanquear", "estética", "blanqueamiento"]):
+            specialty_needed = "Estética Dental"
+        elif any(keyword in request.message.lower() for keyword in ["limpieza", "revisión", "general"]):
+            specialty_needed = "Odontología General"
+            
+        if specialty_needed:
+            action_type = "DERIVAR_ESPECIALISTA"
+        
+        extracted_data = {
+            "pain_level": pain_level,
+            "urgency_color": urgency_color,
+            "specialty_needed": specialty_needed,
+            "requires_followup": urgency_color in ["red", "black", "yellow"]
+        }
+        
+        # Store conversation status for dashboard
+        try:
+            conversation_status = ConversationStatus(
+                contact_id=session_id,
+                contact_name=f"Usuario_{session_id[:8]}",
+                last_message=request.message,
+                pain_level=pain_level,
+                urgency_color=urgency_color,
+                status_description=URGENCY_COLORS[urgency_color].description,
+                pending_response=urgency_color in ["red", "black"],
+                specialty_needed=specialty_needed
+            )
+            
+            # Save to database
+            status_data = prepare_for_mongo(conversation_status.dict())
+            await db.conversation_status.replace_one(
+                {"contact_id": session_id},
+                status_data,
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Error saving conversation status: {str(e)}")
         
         return VoiceAssistantResponse(
             response=response,
