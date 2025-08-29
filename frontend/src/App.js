@@ -717,7 +717,421 @@ const AITraining = () => {
   );
 };
 
-// Agenda Component - Using specified Google Sheets columns
+// Communications Component - WhatsApp-style interface with patient chat and AI
+const Communications = () => {
+  const [contacts, setContacts] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [showBulkReminders, setShowBulkReminders] = useState(false);
+  const [reminderTemplate, setReminderTemplate] = useState('');
+
+  // Fetch contacts (patients)
+  const fetchContacts = async () => {
+    try {
+      const response = await axios.get(`${API}/contacts`);
+      setContacts(response.data);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    }
+  };
+
+  // Fetch patient appointment history
+  const fetchPatientHistory = async (contactId) => {
+    try {
+      const response = await axios.get(`${API}/appointments`);
+      const patientAppointments = response.data.filter(apt => apt.contact_id === contactId);
+      // Sort by date, most recent first
+      patientAppointments.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setPatientHistory(patientAppointments.slice(0, 10)); // Last 10 appointments
+    } catch (error) {
+      console.error("Error fetching patient history:", error);
+      setPatientHistory([]);
+    }
+  };
+
+  // Send message to patient
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedContact) return;
+
+    setLoading(true);
+    try {
+      // Here you would integrate with WhatsApp API
+      const messageData = {
+        contact_id: selectedContact.id,
+        message: newMessage,
+        type: 'outbound',
+        timestamp: new Date().toISOString()
+      };
+
+      // Add to local messages (simulate sending)
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        ...messageData,
+        status: 'sent'
+      }]);
+
+      setNewMessage('');
+      toast.success("Mensaje enviado correctamente");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Error enviando mensaje");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Send bulk reminders
+  const sendBulkReminders = async () => {
+    if (!reminderTemplate.trim()) {
+      toast.error("Por favor escribe un mensaje de recordatorio");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Get appointments for tomorrow (example)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      
+      const response = await axios.get(`${API}/appointments/by-date?date=${tomorrowStr}`);
+      const tomorrowAppointments = response.data;
+
+      // Send reminder to each patient
+      for (const appointment of tomorrowAppointments) {
+        const personalizedMessage = reminderTemplate
+          .replace('{nombre}', appointment.contact_name)
+          .replace('{fecha}', new Date(appointment.date).toLocaleDateString('es-ES'))
+          .replace('{hora}', appointment.time || '10:00')
+          .replace('{doctor}', appointment.doctor || 'Doctor')
+          .replace('{tratamiento}', appointment.treatment || 'Consulta');
+
+        // Here you would send via WhatsApp API
+        console.log(`Sending reminder to ${appointment.contact_name}: ${personalizedMessage}`);
+      }
+
+      toast.success(`Recordatorios enviados a ${tomorrowAppointments.length} pacientes`);
+      setShowBulkReminders(false);
+      setReminderTemplate('');
+    } catch (error) {
+      console.error("Error sending bulk reminders:", error);
+      toast.error("Error enviando recordatorios");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format time
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Format treatment status
+  const getStatusColor = (status) => {
+    const colors = {
+      'scheduled': 'text-blue-600',
+      'confirmed': 'text-green-600',
+      'cancelled': 'text-red-600',
+      'completed': 'text-gray-600'
+    };
+    return colors[status] || 'text-gray-600';
+  };
+
+  const getStatusText = (status) => {
+    const texts = {
+      'scheduled': 'Programada',
+      'confirmed': 'Confirmada',
+      'cancelled': 'Cancelada',
+      'completed': 'Completada'
+    };
+    return texts[status] || status;
+  };
+
+  useEffect(() => {
+    fetchContacts();
+  }, []);
+
+  useEffect(() => {
+    if (selectedContact) {
+      fetchPatientHistory(selectedContact.id);
+    }
+  }, [selectedContact]);
+
+  return (
+    <div className="h-screen flex">
+      {/* Left Sidebar - Contact List */}
+      <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Comunicaciones</h2>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => setShowBulkReminders(true)}
+                size="sm"
+                variant="outline"
+                className="text-xs"
+              >
+                📢 Recordatorios
+              </Button>
+            </div>
+          </div>
+          
+          {/* AI Toggle */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Bot className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium">IA Activa</span>
+            </div>
+            <button
+              onClick={() => setAiEnabled(!aiEnabled)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                aiEnabled ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  aiEnabled ? 'translate-x-5' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Buscar paciente..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Contact List */}
+        <div className="flex-1 overflow-y-auto">
+          {contacts.map(contact => (
+            <div
+              key={contact.id}
+              onClick={() => setSelectedContact(contact)}
+              className={`p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-100 ${
+                selectedContact?.id === contact.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {contact.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-gray-900 truncate">
+                    {contact.name}
+                  </h3>
+                  <p className="text-xs text-gray-500 truncate">
+                    {contact.phone || 'Sin teléfono'}
+                  </p>
+                  <p className="text-xs text-green-600">
+                    {aiEnabled ? 'IA activa' : 'Manual'}
+                  </p>
+                </div>
+                <div className="text-xs text-gray-400">
+                  10:30
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Center - Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedContact ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  {selectedContact.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{selectedContact.name}</h3>
+                  <p className="text-sm text-gray-500">{selectedContact.phone}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+              {messages.length > 0 ? (
+                <div className="space-y-4">
+                  {messages.map(message => (
+                    <div key={message.id} className={`flex ${message.type === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs px-4 py-2 rounded-lg ${
+                        message.type === 'outbound'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-900 border'
+                      }`}>
+                        <p className="text-sm">{message.message}</p>
+                        <p className={`text-xs mt-1 ${
+                          message.type === 'outbound' ? 'text-blue-100' : 'text-gray-500'
+                        }`}>
+                          {formatTime(message.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p>Selecciona un paciente para iniciar la conversación</p>
+                </div>
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 bg-white border-t border-gray-200">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Escribe un mensaje..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                />
+                <Button
+                  onClick={sendMessage}
+                  disabled={loading || !newMessage.trim()}
+                  className="rounded-full px-6"
+                >
+                  {loading ? '...' : 'Enviar'}
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">Selecciona un paciente para comenzar</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right Sidebar - Patient Info */}
+      {selectedContact && (
+        <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+          {/* Patient Summary */}
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-lg mb-4">Información del Paciente</h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</label>
+                <p className="text-sm font-medium">{selectedContact.name}</p>
+              </div>
+              
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</label>
+                <p className="text-sm">{selectedContact.phone || 'No especificado'}</p>
+              </div>
+              
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</label>
+                <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                  {selectedContact.status || 'Activo'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Appointment History */}
+          <div className="p-4">
+            <h4 className="font-semibold mb-3">Historial de Citas</h4>
+            
+            {patientHistory.length > 0 ? (
+              <div className="space-y-3">
+                {patientHistory.map((appointment, index) => (
+                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-sm font-medium">
+                        {new Date(appointment.date).toLocaleDateString('es-ES')}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(appointment.status)}`}>
+                        {getStatusText(appointment.status)}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mb-1">
+                      <strong>Doctor:</strong> {appointment.doctor || 'No especificado'}
+                    </p>
+                    
+                    <p className="text-sm text-gray-600 mb-1">
+                      <strong>Tratamiento:</strong> {appointment.treatment || 'No especificado'}
+                    </p>
+                    
+                    <p className="text-xs text-gray-500">
+                      Hora: {appointment.time || 'No especificada'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No hay historial de citas</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Reminders Modal */}
+      <Dialog open={showBulkReminders} onOpenChange={setShowBulkReminders}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Recordatorios Masivos</DialogTitle>
+            <DialogDescription>
+              Envía recordatorios a todos los pacientes con citas mañana
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template">Plantilla de Mensaje</Label>
+              <Textarea
+                id="template"
+                value={reminderTemplate}
+                onChange={(e) => setReminderTemplate(e.target.value)}
+                placeholder="Hola {nombre}, te recordamos tu cita mañana {fecha} a las {hora} con {doctor} para {tratamiento}."
+                className="h-24"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Variables: {'{nombre}'}, {'{fecha}'}, {'{hora}'}, {'{doctor}'}, {'{tratamiento}'}
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkReminders(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={sendBulkReminders} disabled={loading}>
+              {loading ? 'Enviando...' : 'Enviar Recordatorios'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 1)); // January 1, 2025
   const [appointments, setAppointments] = useState([]);
