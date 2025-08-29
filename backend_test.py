@@ -526,18 +526,17 @@ class OmniDeskAPITester:
         contact_id = self.created_resources['contacts'][0]
         
         # Test CREATE chat session
-        session_params = {
+        session_data = {
             "contact_id": contact_id,
-            "contact_name": "Test Contact",
+            "contact_name": "Test Contact", 
             "contact_phone": "+1234567890"
         }
         
         success, session = self.run_test(
             "Create Chat Session",
             "POST",
-            "chat/sessions",
-            200,
-            params=session_params
+            f"chat/sessions?contact_id={contact_id}&contact_name=Test Contact&contact_phone=+1234567890",
+            200
         )
         
         if not success:
