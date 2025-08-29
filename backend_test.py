@@ -2986,6 +2986,11 @@ class OmniDeskAPITester:
             print("❌ CRITICAL: Automation scheduler tests failed")
             return 1
         
+        print("\n🎯 PRIMARY FOCUS: AI URGENCY DETECTION SYSTEM")
+        if not self.test_ai_urgency_detection_system():
+            print("❌ CRITICAL: AI urgency detection system tests failed")
+            return 1
+        
         # PRIMARY FOCUS: Count exact rows in Google Sheet
         print("\n🎯 PRIMARY FOCUS: COUNT EXACT ROWS IN GOOGLE SHEET")
         if not self.test_count_exact_google_sheet_rows():
