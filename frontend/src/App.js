@@ -1405,6 +1405,8 @@ const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 1)); // January 1, 2025
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(null); // Track which appointment is being updated
+  const [syncStatus, setSyncStatus] = useState({ pending: 0, lastSync: null });
 
   // Format date for API (YYYY-MM-DD)
   const formatDateForAPI = (date) => {
