@@ -242,7 +242,67 @@ class DashboardStats(BaseModel):
     pending_messages: int
     active_campaigns: int
     ai_conversations: int
-    whatsapp_connected: bool = False
+    whatsapp_connected: bool
+
+# AI Assistant Models
+class VoiceAssistantRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+class VoiceAssistantResponse(BaseModel):
+    response: str
+    session_id: str
+    action_type: Optional[str] = None
+    extracted_data: Optional[Dict[str, Any]] = None
+
+# Settings Models
+class ClinicSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = "RUBIO GARCÍA DENTAL"
+    address: str = "Calle Mayor 19, Alcorcón, 28921 Madrid"
+    phone: str = "916 410 841"
+    whatsapp: str = "664 218 253"
+    email: str = "info@rubiogarciadental.com"
+    schedule: str = "Lun-Jue 10:00-14:00 y 16:00-20:00 | Vie 10:00-14:00"
+    specialties: List[str] = ["Implantología", "Estética Dental", "Ortodoncia", "Odontología General", "Endodoncia"]
+    team: List[Dict[str, str]] = [
+        {"name": "Dr. Mario Rubio", "specialty": "Implantólogo, periodoncista y estética"},
+        {"name": "Dra. Virginia Tresgallo", "specialty": "Ortodoncista y odontología preventiva"},
+        {"name": "Dra. Irene García", "specialty": "Endodoncista y general"},
+        {"name": "Dra. Miriam Carrasco", "specialty": "Endodoncista y general"},
+        {"name": "Juan A. Manzanedo", "specialty": "Atención al paciente y dirección"}
+    ]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AISettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    enabled: bool = True
+    model_provider: str = "openai"
+    model_name: str = "gpt-4o-mini"
+    temperature: float = 0.7
+    voice_enabled: bool = True
+    voice_language: str = "es-ES"
+    system_prompt: str = "Eres un asistente virtual de la clínica dental RUBIO GARCÍA DENTAL..."
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AutomationRule(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str
+    trigger_type: str  # "appointment_day_before", "new_appointment", "surgery_reminder"
+    trigger_time: str = "16:00"  # Format: HH:MM
+    enabled: bool = True
+    template_id: str
+    conditions: Dict[str, Any] = {}
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SettingsUpdate(BaseModel):
+    clinic: Optional[ClinicSettings] = None
+    ai: Optional[AISettings] = None
+    automations: Optional[List[AutomationRule]] = None = False
 
 # Helper functions
 def prepare_for_mongo(data):
