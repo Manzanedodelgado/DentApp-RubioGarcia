@@ -695,6 +695,134 @@ async def get_available_tags():
     tags = await db.contacts.aggregate(pipeline).to_list(1000)
     return [{"name": tag["_id"], "count": tag["count"]} for tag in tags]
 
+# Reminder Templates Routes
+@api_router.get("/reminders/templates")
+async def get_reminder_templates():
+    """Get available reminder templates"""
+    try:
+        templates = await db.reminder_templates.find({}).to_list(100)
+        if not templates:
+            # Default templates if none exist
+            default_templates = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Recordatorio Cita",
+                    "content": "Hola {nombre}, te recordamos tu cita el {fecha} a las {hora} con {doctor} para {tratamiento}. ¡Te esperamos!",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Confirmación Cita",
+                    "content": "Estimado/a {nombre}, por favor confirma tu asistencia a la cita del {fecha} a las {hora} con {doctor}.",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Recordatorio Revisión",
+                    "content": "Hola {nombre}, es momento de tu revisión anual. Contacta con nosotros para agendar tu cita.",
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+            ]
+            
+            await db.reminder_templates.insert_many(default_templates)
+            return default_templates
+        
+        return [parse_from_mongo(template) for template in templates]
+    except Exception as e:
+        logger.error(f"Error fetching reminder templates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching templates")
+
+@api_router.post("/reminders/send-bulk")
+async def send_bulk_appointment_reminders(reminder_data: dict):
+    """Send reminders to selected appointments"""
+    try:
+        appointment_ids = reminder_data.get("appointment_ids", [])
+        template_content = reminder_data.get("template_content", "")
+        
+        if not appointment_ids or not template_content:
+            raise HTTPException(status_code=400, detail="appointment_ids and template_content are required")
+        
+        sent_count = 0
+        for appointment_id in appointment_ids:
+            appointment = await db.appointments.find_one({"id": appointment_id})
+            if appointment and appointment.get("phone"):
+                # Personalize message
+                personalized_message = template_content
+                personalized_message = personalized_message.replace("{nombre}", appointment.get("contact_name", ""))
+                personalized_message = personalized_message.replace("{fecha}", appointment.get("date", "")[:10])
+                personalized_message = personalized_message.replace("{hora}", appointment.get("time", ""))
+                personalized_message = personalized_message.replace("{doctor}", appointment.get("doctor", ""))
+                personalized_message = personalized_message.replace("{tratamiento}", appointment.get("treatment", ""))
+                
+                # Create message record
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": appointment.get("contact_id"),
+                    "message": personalized_message,
+                    "type": "outbound",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "sent",
+                    "ai_generated": False
+                }
+                
+                await db.messages.insert_one(message)
+                
+                # Mark appointment as reminded
+                await db.appointments.update_one(
+                    {"id": appointment_id},
+                    {"$set": {"reminder_sent": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                
+                sent_count += 1
+        
+        return {"message": f"Reminders sent to {sent_count} appointments", "sent_count": sent_count}
+        
+    except Exception as e:
+        logger.error(f"Error sending bulk reminders: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending reminders")
+
+@api_router.post("/reminders/process-csv")
+async def process_csv_reminders(csv_data: dict):
+    """Process CSV data for bulk reminders"""
+    try:
+        records = csv_data.get("records", [])
+        template_content = csv_data.get("template_content", "")
+        
+        if not records or not template_content:
+            raise HTTPException(status_code=400, detail="records and template_content are required")
+        
+        processed_count = 0
+        for record in records:
+            if record.get("nombre") and record.get("telefono"):
+                # Process CSV reminder
+                personalized_message = template_content
+                personalized_message = personalized_message.replace("{nombre}", record.get("nombre", ""))
+                personalized_message = personalized_message.replace("{fecha}", record.get("fecha", ""))
+                personalized_message = personalized_message.replace("{hora}", record.get("hora", ""))
+                personalized_message = personalized_message.replace("{doctor}", record.get("doctor", ""))
+                personalized_message = personalized_message.replace("{tratamiento}", record.get("tratamiento", ""))
+                
+                # Create message record (simulate sending)
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": "csv_import",  # Special identifier for CSV imports
+                    "phone": record.get("telefono"),
+                    "message": personalized_message,
+                    "type": "outbound",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "sent",
+                    "ai_generated": False
+                }
+                
+                await db.messages.insert_one(message)
+                processed_count += 1
+        
+        return {"message": f"Processed {processed_count} CSV reminders", "processed_count": processed_count}
+        
+    except Exception as e:
+        logger.error(f"Error processing CSV reminders: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing CSV reminders")
+
 # Communication Routes
 @api_router.post("/communications/send-message")
 async def send_message(message_data: dict):
