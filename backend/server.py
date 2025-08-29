@@ -666,6 +666,75 @@ async def get_available_tags():
     tags = await db.contacts.aggregate(pipeline).to_list(1000)
     return [{"name": tag["_id"], "count": tag["count"]} for tag in tags]
 
+# Appointment Sync Routes
+@api_router.post("/appointments/sync")
+async def sync_appointments():
+    """Manually trigger appointment synchronization"""
+    try:
+        from import_data import import_appointments
+        await import_appointments()
+        return {"message": "Appointments synchronized successfully"}
+    except Exception as e:
+        logger.error(f"Sync error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+@api_router.get("/appointments/by-date")
+async def get_appointments_by_date(date: str = Query(..., description="Date in YYYY-MM-DD format")):
+    """Get appointments for a specific date"""
+    try:
+        # Parse the date
+        target_date = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+        start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Query appointments for the date
+        filter_query = {
+            "date": {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            }
+        }
+        
+        appointments = await db.appointments.find(filter_query).sort("date", 1).to_list(1000)
+        return [Appointment(**parse_from_mongo(appointment)) for appointment in appointments]
+    except Exception as e:
+        logger.error(f"Error fetching appointments by date: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching appointments")
+
+# Scheduler for automatic sync
+scheduler = None
+
+async def sync_job():
+    """Background job to sync appointments every 5 minutes"""
+    try:
+        from import_data import import_appointments
+        await import_appointments()
+        logger.info("✅ Automatic appointment sync completed")
+    except Exception as e:
+        logger.error(f"❌ Automatic sync failed: {str(e)}")
+
+def start_scheduler():
+    """Start the appointment sync scheduler"""
+    global scheduler
+    if scheduler is None:
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            sync_job,
+            trigger=IntervalTrigger(minutes=5),
+            id='appointment_sync',
+            replace_existing=True
+        )
+        scheduler.start()
+        logger.info("🚀 Appointment sync scheduler started (every 5 minutes)")
+
+def stop_scheduler():
+    """Stop the appointment sync scheduler"""
+    global scheduler
+    if scheduler:
+        scheduler.shutdown()
+        scheduler = None
+        logger.info("⏹️ Appointment sync scheduler stopped")
+
 # Include the router in the main app
 app.include_router(api_router)
 
