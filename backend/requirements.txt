@@ -28,3 +28,4 @@ emergentintegrations
 beautifulsoup4
 aiofiles
 apscheduler
+google-api-python-client
