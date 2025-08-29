@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast, Toaster } from "sonner";
 import SettingsContent from "./components/ui/settings";
 import VoiceAssistantWidget from "./components/VoiceAssistantWidget";
+import WhatsAppManager from "./components/WhatsAppManager";
 
 // Authentication Context
 const AuthContext = createContext();
