@@ -399,6 +399,29 @@ async def get_appointments(
     appointments = await db.appointments.find(filter_query).sort("date", 1).to_list(1000)
     return [Appointment(**parse_from_mongo(appointment)) for appointment in appointments]
 
+@api_router.get("/appointments/by-date")
+async def get_appointments_by_date(date: str = Query(..., description="Date in YYYY-MM-DD format")):
+    """Get appointments for a specific date"""
+    try:
+        # Parse the date
+        target_date = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+        start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # Query appointments for the date
+        filter_query = {
+            "date": {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            }
+        }
+        
+        appointments = await db.appointments.find(filter_query).sort("date", 1).to_list(1000)
+        return [Appointment(**parse_from_mongo(appointment)) for appointment in appointments]
+    except Exception as e:
+        logger.error(f"Error fetching appointments by date: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching appointments")
+
 @api_router.get("/appointments/{appointment_id}", response_model=Appointment)
 async def get_appointment(appointment_id: str):
     appointment = await db.appointments.find_one({"id": appointment_id})
