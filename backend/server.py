@@ -299,6 +299,16 @@ class AutomationRule(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Google Sheets Sync Models
+class AppointmentUpdate(BaseModel):
+    status: Optional[str] = None
+    doctor: Optional[str] = None  
+    treatment: Optional[str] = None
+    time: Optional[str] = None
+    date: Optional[str] = None
+    notes: Optional[str] = None
+    duration_minutes: Optional[int] = None
+
 class SettingsUpdate(BaseModel):
     clinic: Optional[ClinicSettings] = None
     ai: Optional[AISettings] = None
