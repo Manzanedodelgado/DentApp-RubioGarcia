@@ -1408,6 +1408,8 @@ function App() {
         return <Contacts />;
       case "agenda":
         return <Agenda />;
+      case "communications":
+        return <Communications />;
       case "messages":
         return <Messages />;
       case "ai-training":
