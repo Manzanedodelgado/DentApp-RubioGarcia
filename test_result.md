@@ -265,6 +265,8 @@ test_plan:
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+  - task: "Test rebuilt simple Agenda component"
     implemented: true
     working: true
     file: "frontend/src/App.js"
