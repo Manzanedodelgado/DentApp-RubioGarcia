@@ -10,6 +10,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -164,6 +165,65 @@ class CampaignCreate(BaseModel):
     target_tags: List[str] = Field(default_factory=list)
     scheduled_at: Optional[datetime] = None
 
+# AI Training Models
+class AITraining(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    practice_name: str = "RUBIO GARCÍA DENTAL"
+    system_prompt: str
+    specialties: List[str] = Field(default_factory=list)
+    services: List[str] = Field(default_factory=list)
+    working_hours: str = "Lunes a Viernes 9:00-18:00"
+    emergency_contact: str = ""
+    appointment_instructions: str = ""
+    policies: str = ""
+    personality: str = "profesional y amigable"
+    language: str = "español"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AITrainingCreate(BaseModel):
+    practice_name: str = "RUBIO GARCÍA DENTAL"
+    system_prompt: str
+    specialties: List[str] = Field(default_factory=list)
+    services: List[str] = Field(default_factory=list)
+    working_hours: str = "Lunes a Viernes 9:00-18:00"
+    emergency_contact: str = ""
+    appointment_instructions: str = ""
+    policies: str = ""
+    personality: str = "profesional y amigable"
+    language: str = "español"
+
+class AITrainingUpdate(BaseModel):
+    practice_name: Optional[str] = None
+    system_prompt: Optional[str] = None
+    specialties: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+    working_hours: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    appointment_instructions: Optional[str] = None
+    policies: Optional[str] = None
+    personality: Optional[str] = None
+    language: Optional[str] = None
+
+class ChatSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    contact_id: str
+    contact_name: str
+    contact_phone: str
+    messages: List[dict] = Field(default_factory=list)
+    is_active: bool = True
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ChatMessage(BaseModel):
+    content: str
+    is_from_patient: bool = True
+
+class AIResponse(BaseModel):
+    response: str
+    should_schedule_appointment: bool = False
+    extracted_info: dict = Field(default_factory=dict)
+
 class DashboardStats(BaseModel):
     total_contacts: int
     active_contacts: int
@@ -171,6 +231,8 @@ class DashboardStats(BaseModel):
     today_appointments: int
     pending_messages: int
     active_campaigns: int
+    ai_conversations: int
+    whatsapp_connected: bool = False
 
 # Helper functions
 def prepare_for_mongo(data):
@@ -189,6 +251,63 @@ def parse_from_mongo(item):
                 except:
                     pass
     return item
+
+# AI Chat Helper
+async def get_ai_response(message: str, contact_id: str, training_config: dict) -> AIResponse:
+    try:
+        # Get AI training configuration
+        ai_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not ai_key:
+            return AIResponse(response="Lo siento, el sistema de IA no está configurado correctamente.")
+        
+        # Create system prompt based on training
+        system_prompt = f"""
+Eres un asistente virtual de {training_config.get('practice_name', 'RUBIO GARCÍA DENTAL')}.
+
+INFORMACIÓN DE LA CLÍNICA:
+- Especialidades: {', '.join(training_config.get('specialties', ['Implantología', 'Estética dental']))}
+- Servicios: {', '.join(training_config.get('services', ['Consultas generales', 'Limpiezas', 'Implantes']))}
+- Horarios: {training_config.get('working_hours', 'Lunes a Viernes 9:00-18:00')}
+- Emergencias: {training_config.get('emergency_contact', 'Para emergencias llame al teléfono principal')}
+
+INSTRUCCIONES PARA CITAS:
+{training_config.get('appointment_instructions', 'Para agendar citas, proporcione su nombre, teléfono y preferencia de horario.')}
+
+POLÍTICAS:
+{training_config.get('policies', 'Recordamos confirmar las citas 24 horas antes.')}
+
+PERSONALIDAD: {training_config.get('personality', 'profesional y amigable')}
+IDIOMA: {training_config.get('language', 'español')}
+
+Responde de manera {training_config.get('personality', 'profesional y amigable')} en {training_config.get('language', 'español')}. 
+Si el paciente quiere agendar una cita, solicita todos los datos necesarios y confirma la disponibilidad.
+Mantén las respuestas concisas pero completas.
+"""
+        
+        # Initialize LLM chat
+        chat = LlmChat(
+            api_key=ai_key,
+            session_id=f"dental_chat_{contact_id}",
+            system_message=system_prompt
+        ).with_model("openai", "gpt-4o-mini")
+        
+        # Send message to AI
+        user_message = UserMessage(text=message)
+        ai_response = await chat.send_message(user_message)
+        
+        # Check if appointment scheduling is needed
+        appointment_keywords = ["cita", "agendar", "reservar", "turno", "consulta", "appointment"]
+        should_schedule = any(keyword in message.lower() for keyword in appointment_keywords)
+        
+        return AIResponse(
+            response=ai_response,
+            should_schedule_appointment=should_schedule,
+            extracted_info={}
+        )
+        
+    except Exception as e:
+        logging.error(f"AI response error: {str(e)}")
+        return AIResponse(response="Lo siento, no pude procesar tu mensaje en este momento. Por favor intenta más tarde.")
 
 # Contact Routes
 @api_router.post("/contacts", response_model=Contact)
@@ -366,6 +485,115 @@ async def get_campaigns():
     campaigns = await db.campaigns.find().sort("created_at", -1).to_list(1000)
     return [Campaign(**parse_from_mongo(campaign)) for campaign in campaigns]
 
+# AI Training Routes
+@api_router.post("/ai/training", response_model=AITraining)
+async def create_ai_training(training: AITrainingCreate):
+    # Delete existing training (only one config allowed)
+    await db.ai_training.delete_many({})
+    
+    training_obj = AITraining(**training.dict())
+    training_data = prepare_for_mongo(training_obj.dict())
+    await db.ai_training.insert_one(training_data)
+    return training_obj
+
+@api_router.get("/ai/training", response_model=Optional[AITraining])
+async def get_ai_training():
+    training = await db.ai_training.find_one()
+    if not training:
+        return None
+    return AITraining(**parse_from_mongo(training))
+
+@api_router.put("/ai/training", response_model=AITraining)
+async def update_ai_training(updates: AITrainingUpdate):
+    existing = await db.ai_training.find_one()
+    if not existing:
+        raise HTTPException(status_code=404, detail="AI training configuration not found")
+    
+    update_data = {k: v for k, v in updates.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    update_data = prepare_for_mongo(update_data)
+    
+    await db.ai_training.update_one({}, {"$set": update_data})
+    updated_training = await db.ai_training.find_one()
+    return AITraining(**parse_from_mongo(updated_training))
+
+# Chat Routes
+@api_router.post("/chat/sessions", response_model=ChatSession)
+async def create_chat_session(contact_id: str, contact_name: str, contact_phone: str):
+    # Check if active session exists
+    existing = await db.chat_sessions.find_one({
+        "contact_id": contact_id,
+        "is_active": True
+    })
+    
+    if existing:
+        return ChatSession(**parse_from_mongo(existing))
+    
+    session_obj = ChatSession(
+        contact_id=contact_id,
+        contact_name=contact_name,
+        contact_phone=contact_phone
+    )
+    session_data = prepare_for_mongo(session_obj.dict())
+    await db.chat_sessions.insert_one(session_data)
+    return session_obj
+
+@api_router.post("/chat/message")
+async def send_chat_message(session_id: str, message: ChatMessage):
+    # Get session
+    session = await db.chat_sessions.find_one({"id": session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    # Get AI training configuration
+    training = await db.ai_training.find_one()
+    training_config = training if training else {}
+    
+    # Get AI response
+    ai_response = await get_ai_response(message.content, session["contact_id"], training_config)
+    
+    # Add messages to session
+    new_messages = [
+        {
+            "content": message.content,
+            "is_from_patient": message.is_from_patient,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "content": ai_response.response,
+            "is_from_patient": False,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    ]
+    
+    # Update session
+    await db.chat_sessions.update_one(
+        {"id": session_id},
+        {
+            "$push": {"messages": {"$each": new_messages}},
+            "$set": {"last_activity": datetime.now(timezone.utc)}
+        }
+    )
+    
+    return {
+        "ai_response": ai_response.response,
+        "should_schedule_appointment": ai_response.should_schedule_appointment,
+        "extracted_info": ai_response.extracted_info
+    }
+
+@api_router.get("/chat/sessions", response_model=List[ChatSession])
+async def get_chat_sessions(active_only: bool = True):
+    filter_query = {"is_active": True} if active_only else {}
+    sessions = await db.chat_sessions.find(filter_query).sort("last_activity", -1).to_list(1000)
+    return [ChatSession(**parse_from_mongo(session)) for session in sessions]
+
+@api_router.get("/chat/sessions/{session_id}", response_model=ChatSession)
+async def get_chat_session(session_id: str):
+    session = await db.chat_sessions.find_one({"id": session_id})
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    return ChatSession(**parse_from_mongo(session))
+
 # Dashboard Routes
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats():
@@ -390,13 +618,17 @@ async def get_dashboard_stats():
         "status": {"$in": ["scheduled", "sending"]}
     })
     
+    ai_conversations = await db.chat_sessions.count_documents({"is_active": True})
+    
     return DashboardStats(
         total_contacts=total_contacts,
         active_contacts=active_contacts,
         total_appointments=total_appointments,
         today_appointments=today_appointments,
         pending_messages=pending_messages,
-        active_campaigns=active_campaigns
+        active_campaigns=active_campaigns,
+        ai_conversations=ai_conversations,
+        whatsapp_connected=False
     )
 
 # Get available tags
