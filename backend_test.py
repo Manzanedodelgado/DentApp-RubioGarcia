@@ -3257,6 +3257,11 @@ class OmniDeskAPITester:
             print("❌ CRITICAL: AI urgency detection system tests failed")
             return 1
         
+        print("\n🎯 PRIMARY FOCUS: BIDIRECTIONAL GOOGLE SHEETS SYNC")
+        if not self.test_bidirectional_google_sheets_sync():
+            print("❌ CRITICAL: Bidirectional Google Sheets sync tests failed")
+            return 1
+        
         # PRIMARY FOCUS: Count exact rows in Google Sheet
         print("\n🎯 PRIMARY FOCUS: COUNT EXACT ROWS IN GOOGLE SHEET")
         if not self.test_count_exact_google_sheet_rows():
