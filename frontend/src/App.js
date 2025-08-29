@@ -2325,8 +2325,29 @@ const Messages = () => {
   );
 };
 
-// Main App Component
+// Main App Component with Authentication
 function App() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
+  );
+}
+
+// Authenticated App Wrapper
+function AuthenticatedApp() {
+  const { isAuthenticated, login } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Login onLogin={login} />;
+  }
+
+  return <MainDashboard />;
+}
+
+// Main Dashboard Component (Protected)
+function MainDashboard() {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -2341,6 +2362,11 @@ function App() {
     { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "settings", label: "Configuración", icon: Settings }
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    toast.success("Sesión cerrada correctamente");
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -2363,6 +2389,71 @@ function App() {
       default:
         return <Dashboard />;
     }
+  };
+
+  // Mobile Menu Component
+  const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }) => {
+    return (
+      <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+        <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
+        <div className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <img 
+                  src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/tckikfmy_Logo%20blanco.jpeg"
+                  alt="Rubio García Dental"
+                  className="w-8 h-8 rounded-lg object-contain bg-blue-600 p-1"
+                />
+                <div>
+                  <h1 className="text-sm font-bold text-blue-800">RUBIO GARCÍA</h1>
+                  <p className="text-xs text-gray-600">DENTAL</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+          
+          <nav className="p-4 space-y-1">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onTabChange(item.id);
+                    onClose();
+                  }}
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === item.id
+                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* User info and logout in mobile */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                <p className="text-xs text-gray-500">@{user?.username}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleLogout}>
+                Salir
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -2405,6 +2496,19 @@ function App() {
                 );
               })}
             </nav>
+
+            {/* User info and logout in desktop */}
+            <div className="absolute bottom-0 left-0 w-64 p-4 border-t border-gray-200 bg-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-500">@{user?.username}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleLogout}>
+                  Salir
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Mobile Header */}
@@ -2421,13 +2525,18 @@ function App() {
                   <p className="text-xs text-gray-600">DENTAL</p>
                 </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsMobileMenuOpen(true)}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button size="sm" variant="outline" onClick={handleLogout}>
+                  Salir
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsMobileMenuOpen(true)}
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -2441,7 +2550,7 @@ function App() {
           />
 
           {/* Main Content */}
-          <div className="flex-1 p-4 lg:p-8 pt-20 lg:pt-8">
+          <div className="flex-1 p-4 lg:p-8 pt-20 lg:pt-8 pb-20 lg:pb-8">
             {renderContent()}
           </div>
         </div>
