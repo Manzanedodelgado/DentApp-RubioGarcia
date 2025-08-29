@@ -259,11 +259,17 @@ metadata:
         - agent: "testing"
         - comment: "🎉 SIMPLE AGENDA TESTING COMPLETE - ALL REQUIREMENTS EXCEEDED! ✅ NAVIGATION: Successfully navigated to Agenda section, opens to January 1, 2025 as requested ✅ SIMPLE INTERFACE: Perfect implementation - 'Seleccionar Fecha' section with date picker + appointment list, no complex calendar components ✅ DATE PICKER FUNCTIONALITY: Starts with January 1, 2025 correctly, direct date selection working perfectly ✅ APPOINTMENT DATA: January 2, 2025 shows exactly 23 appointments as expected, July 1, 2025 shows exactly 20 appointments as expected ✅ APPOINTMENT FORMAT: Clean list format showing patient name, treatment, time, duration as requested ✅ EMPTY DATE HANDLING: Shows 'No hay citas programadas' for dates without appointments (January 1, 2025) ✅ SIMPLICITY VERIFIED: Zero complex calendar components - no grid layout, no navigation arrows, no selection checkboxes, no confirmation buttons ✅ DATE RANGE ACCESS: Successfully tested January 2025 through July 2025, all dates accessible via simple date picker ✅ REAL DATA INTEGRATION: Using authentic Google Sheets data with real patient names (Mayssa Auolad Alid, Eva Calero Alia, Antonio Fernandez Alonso, etc.) ✅ API INTEGRATION: Perfect backend integration, fast loading, proper error handling. The rebuilt simple Agenda is PRODUCTION READY and meets all review requirements perfectly - simple date picker + appointment list only, no calendar complexity!"
 
-test_plan:
-  current_focus: []
-  stuck_tasks: []
-  test_all: false
-  test_priority: "high_first"
+  - task: "Test new column mapping from Google Sheets"
+    implemented: true
+    working: false
+    file: "backend/import_data.py, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+        - agent: "testing"
+        - comment: "❌ NEW COLUMN MAPPING TEST FAILED: Critical issue identified - Google Sheets is missing the 'Doctor' column (Column L). Current headers: ['Registro', 'CitMod', 'FechaAlta', 'NumPac', 'Apellidos', 'Nombre', 'TelMovil', 'Fecha', 'Hora', 'EstadoCita', 'Tratamiento']. ✅ WORKING FIELDS: Contact names (Nombre + Apellidos), Status normalization (EstadoCita → scheduled/confirmed/cancelled/completed). ❌ MISSING FIELDS: Doctor column not present in Google Sheets, patient_number/phone/treatment/time fields not being stored in appointment records. The import_data.py correctly reads the available columns but the appointment model needs to store these fields. Status: 3/8 criteria passed."
 
 agent_communication:
     - agent: "main"
