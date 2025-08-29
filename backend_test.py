@@ -803,7 +803,22 @@ class OmniDeskAPITester:
             print("❌ Dashboard tests failed, stopping")
             return 1
         
-        # Test CRUD operations
+        # Test NEW appointment sync functionality (HIGH PRIORITY)
+        print("\n🎯 TESTING NEW APPOINTMENT SYNC FEATURES")
+        if not self.test_appointment_sync_functionality():
+            print("❌ Appointment sync functionality tests failed")
+            return 1
+        
+        if not self.test_scheduler_status():
+            print("❌ Scheduler status tests failed")
+            return 1
+        
+        if not self.test_imported_data_in_dashboard():
+            print("❌ Imported data dashboard tests failed")
+            return 1
+        
+        # Test existing CRUD operations to ensure they still work
+        print("\n🔄 TESTING EXISTING FUNCTIONALITY")
         if not self.test_contacts_crud():
             print("❌ Contacts CRUD tests failed")
             return 1
