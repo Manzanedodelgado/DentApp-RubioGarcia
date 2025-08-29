@@ -1,0 +1,25 @@
+{
+  "name": "rubio-garcia-whatsapp",
+  "version": "1.0.0",
+  "description": "WhatsApp integration for Rubio García Dental clinic",
+  "main": "whatsapp-service.js",
+  "scripts": {
+    "start": "node whatsapp-service.js",
+    "dev": "nodemon whatsapp-service.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.8",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "axios": "^1.6.7",
+    "qrcode-terminal": "^0.12.0",
+    "moment": "^2.30.1",
+    "moment-timezone": "^0.5.45"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "keywords": ["whatsapp", "dental", "clinic", "ai", "baileys"],
+  "author": "Rubio García Dental",
+  "license": "MIT"
+}
