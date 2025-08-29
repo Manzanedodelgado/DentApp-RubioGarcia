@@ -2922,7 +2922,7 @@ function MainDashboard() {
       case "ai-training":
         return <AITraining />;
       case "settings":
-        return <Settings />;
+        return <SettingsPage />;
       default:
         return <Dashboard />;
     }
