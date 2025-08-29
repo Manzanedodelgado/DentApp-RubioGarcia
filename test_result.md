@@ -150,6 +150,18 @@ backend:
         - agent: "testing"
         - comment: "✅ TESTED: Both endpoints working perfectly. POST /api/appointments/sync successfully triggers manual sync. GET /api/appointments/by-date correctly filters appointments by date (tested with 2025-01-20, 2025-01-22). Fixed route ordering issue to prevent conflicts with parameterized routes."
 
+  - task: "Fix Google Sheets API access for real data import"
+    implemented: true
+    working: false
+    file: "backend/import_data.py, backend/.env"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+        - agent: "testing"
+        - comment: "❌ CRITICAL ISSUE: Google Sheets API calls failing with 'API_KEY_SERVICE_BLOCKED' error (403 Forbidden). System is using fallback data instead of real Google Sheets data. API key AIzaSyCSYOu9D-SdyPVnBoqV7ySdA2oUsX7k8wA is blocked/restricted. Backend logs show: 'Requests to this API sheets.googleapis.com method google.apps.sheets.v4.SpreadsheetsService.GetValues are blocked'. All 12 appointments currently in system match fallback data exactly. Need to fix Google Sheets API configuration to access real data from spreadsheet: https://docs.google.com/spreadsheets/d/1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ/edit"
+
 frontend:
   - task: "Create Agenda section in navigation"
     implemented: true
