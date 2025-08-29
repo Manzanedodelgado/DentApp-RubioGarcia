@@ -304,6 +304,36 @@ class SettingsUpdate(BaseModel):
     ai: Optional[AISettings] = None
     automations: Optional[List[AutomationRule]] = None
 
+# Conversation Status Models
+class ConversationStatus(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    contact_id: str
+    contact_name: str
+    last_message: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    pain_level: Optional[int] = None
+    urgency_color: str = "gray"  # gray, red, black, yellow
+    status_description: str = "Nueva conversación"
+    pending_response: bool = True
+    assigned_doctor: Optional[str] = None
+    specialty_needed: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UrgencyClassification(BaseModel):
+    color: str
+    description: str
+    priority: int  # 1=highest, 5=lowest
+
+# Color coding system
+URGENCY_COLORS = {
+    "red": UrgencyClassification(color="red", description="Urgencia por dolor agudo (8-10)", priority=1),
+    "black": UrgencyClassification(color="black", description="Pendiente de dar cita pronto", priority=2), 
+    "yellow": UrgencyClassification(color="yellow", description="Seguimiento requerido", priority=3),
+    "gray": UrgencyClassification(color="gray", description="Nueva conversación", priority=4),
+    "green": UrgencyClassification(color="green", description="Atendido satisfactoriamente", priority=5)
+}
+
 # Helper functions
 def prepare_for_mongo(data):
     if isinstance(data, dict):
