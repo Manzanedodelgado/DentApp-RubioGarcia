@@ -2483,9 +2483,25 @@ const SettingsPage = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">Configuración del Sistema</h1>
-        <p className="text-gray-600 mt-2">Gestiona configuraciones avanzadas, IA y futuras integraciones</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Configuración</h1>
+          <p className="text-gray-600 mt-2">Gestiona la información, IA y automatizaciones de tu clínica</p>
+        </div>
+        
+        {/* Voice Assistant Button - Floating */}
+        {voiceEnabled && (
+          <div className="fixed bottom-6 right-6 z-50">
+            <Button
+              onClick={isListening ? stopListening : startListening}
+              className={`w-16 h-16 rounded-full shadow-lg ${
+                isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+              }`}
+            >
+              <MessageCircle className={`w-6 h-6 ${isListening ? 'animate-pulse' : ''}`} />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Configuration Tabs */}
