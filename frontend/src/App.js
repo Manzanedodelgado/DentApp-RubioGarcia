@@ -2886,6 +2886,7 @@ function MainDashboard() {
     { id: "contacts", label: "Pacientes", icon: Users },
     { id: "agenda", label: "Agenda", icon: Calendar },
     { id: "communications", label: "Comunicaciones", icon: MessageCircle },
+    { id: "whatsapp", label: "WhatsApp", icon: Smartphone },
     { id: "reminders", label: "Recordatorios", icon: MessageSquare },
     { id: "templates", label: "Plantillas", icon: Tag },
     { id: "messages", label: "WhatsApp IA", icon: MessageCircle },
