@@ -719,8 +719,9 @@ const AITraining = () => {
 
 // Agenda Component with Monthly Calendar and Appointment List
 const Agenda = () => {
+  // Start with January 20, 2025 (where we know there are appointments)
   const [appointments, setAppointments] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date(2025, 0, 20)); // January 20, 2025
   const [loading, setLoading] = useState(false);
   const [selectedAppointments, setSelectedAppointments] = useState([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
