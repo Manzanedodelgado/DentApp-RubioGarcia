@@ -128,22 +128,55 @@ async def import_appointments():
     appointments_data = get_google_sheets_data()
     print(f"📊 Retrieved {len(appointments_data)} appointments from data source")
     
-    # Clear existing data
-    await db.contacts.delete_many({})
+    # Don't clear existing data - instead check for duplicates
+    print("🔍 Checking for existing contacts to avoid duplicates...")
+    
+    existing_contacts = {}
+    try:
+        existing_contacts_cursor = db.contacts.find({})
+        async for contact in existing_contacts_cursor:
+            name = contact.get('name', '')
+            phone = contact.get('phone', '')
+            # Use name + phone as unique key
+            key = f"{name}_{phone}"
+            existing_contacts[key] = contact.get('id')
+        print(f"📋 Found {len(existing_contacts)} existing contacts in database")
+    except Exception as e:
+        print(f"⚠️ Error checking existing contacts: {e}")
+    
+    # Clear only appointments to refresh with latest data
     await db.appointments.delete_many({})
-    print("✅ Cleared existing data")
+    print("✅ Cleared existing appointments for fresh sync")
     
     contacts_dict = {}
     imported_contacts = 0
     imported_appointments = 0
+    updated_contacts = 0
+    
+    # Sort appointments by date (Fecha column) starting from January 1, 2025
+    appointments_data.sort(key=lambda x: x.get('Fecha', ''))
     
     for apt_data in appointments_data:
         try:
             # Create or get contact
-            full_name = f"{apt_data['Nombre']} {apt_data['Apellidos']}"
-            phone = apt_data.get('TelMovil', '')
+            full_name = f"{apt_data.get('Nombre', '')} {apt_data.get('Apellidos', '')}".strip()
+            phone = apt_data.get('TelMovil', '').strip()
             
-            if full_name not in contacts_dict:
+            if not full_name or not apt_data.get('Fecha'):
+                print(f"⚠️ Skipping incomplete data: {full_name} - {apt_data.get('Fecha')}")
+                continue
+            
+            # Check if contact already exists (avoid duplicates)
+            contact_key = f"{full_name}_{phone}"
+            
+            if contact_key in existing_contacts:
+                # Use existing contact
+                contact_id = existing_contacts[contact_key]
+                contacts_dict[full_name] = contact_id
+                updated_contacts += 1
+                print(f"🔄 Using existing contact: {full_name}")
+            elif full_name not in contacts_dict:
+                # Create new contact
                 contact_id = str(uuid.uuid4())
                 contact = {
                     "id": contact_id,
@@ -151,31 +184,39 @@ async def import_appointments():
                     "phone": phone,
                     "whatsapp": phone,
                     "email": None,
-                    "tags": ["paciente", "importado"],
+                    "tags": ["paciente", "google-sheets"],
                     "status": "active",
-                    "notes": f"Paciente importado de agenda existente",
+                    "notes": f"Paciente importado desde Google Sheets - Registro: {apt_data.get('Registro', 'N/A')}",
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
                 
                 await db.contacts.insert_one(contact)
                 contacts_dict[full_name] = contact_id
+                existing_contacts[contact_key] = contact_id  # Add to existing for future checks
                 imported_contacts += 1
-                print(f"📝 Created contact: {full_name}")
+                print(f"📝 Created new contact: {full_name}")
+            else:
+                contact_id = contacts_dict[full_name]
             
-            # Create appointment
+            # Create appointment using Fecha as key for ordering
             contact_id = contacts_dict[full_name]
-            appointment_date = parse_date_time(apt_data['Fecha'], apt_data['Hora'])
+            appointment_date = parse_date_time(apt_data['Fecha'], apt_data.get('Hora', '09:00'))
+            
+            # Build comprehensive title
+            treatment = apt_data.get('Tratamiento', 'Consulta')
+            doctor = apt_data.get('Odontologo', 'Dr. No especificado')
+            title = f"{treatment} - {doctor}"
             
             appointment = {
                 "id": str(uuid.uuid4()),
                 "contact_id": contact_id,
                 "contact_name": full_name,
-                "title": f"{apt_data['Tratamiento']} - {apt_data['Odontologo']}",
+                "title": title,
                 "description": apt_data.get('Notas', ''),
                 "date": appointment_date.isoformat(),
                 "duration_minutes": int(apt_data.get('Duracion', '30')),
-                "status": normalize_status(apt_data['EstadoCita']),
+                "status": normalize_status(apt_data.get('EstadoCita', 'Planificada')),
                 "reminder_sent": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat()
@@ -188,9 +229,19 @@ async def import_appointments():
             print(f"❌ Error importing appointment {apt_data.get('Registro', 'Unknown')}: {str(e)}")
     
     print(f"\n🎉 Import completed successfully!")
-    print(f"✅ Imported {imported_contacts} unique patients")
+    print(f"✅ Created {imported_contacts} new patients")
+    print(f"🔄 Updated {updated_contacts} existing patients")
     print(f"✅ Imported {imported_appointments} appointments")
     print(f"📊 Data is now available in the platform")
+    
+    if imported_appointments > 0:
+        # Get date range for confirmation
+        first_apt = await db.appointments.find_one({}, sort=[("date", 1)])
+        last_apt = await db.appointments.find_one({}, sort=[("date", -1)])
+        if first_apt and last_apt:
+            first_date = first_apt.get('date', '')[:10]
+            last_date = last_apt.get('date', '')[:10]
+            print(f"📅 Appointment date range: {first_date} to {last_date}")
 
 async def main():
     await import_appointments()
