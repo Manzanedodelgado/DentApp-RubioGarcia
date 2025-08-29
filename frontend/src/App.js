@@ -2441,10 +2441,10 @@ const SettingsPage = () => {
     try {
       const response = await axios.post(`${API}/ai/test`, {
         message: testMessage,
-        model: settings.ai.model,
-        temperature: settings.ai.temperature,
-        maxTokens: settings.ai.maxTokens,
-        systemPrompt: settings.ai.systemPrompt
+        model: aiSettings.model_name,
+        temperature: aiSettings.temperature,
+        maxTokens: aiSettings.max_tokens,
+        systemPrompt: aiSettings.system_prompt
       });
 
       setAiResponse(response.data.response);
