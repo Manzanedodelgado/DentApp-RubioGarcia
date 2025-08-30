@@ -1163,6 +1163,264 @@ async def update_consent_delivery_status(delivery_id: str, status_data: dict):
     
     return {"message": "Consent delivery status updated successfully"}
 
+# Gesden Integration Routes
+@api_router.get("/gesden/status")
+async def get_gesden_status():
+    """Get current Gesden synchronization status"""
+    try:
+        # Get latest sync status
+        latest_sync = await db.gesden_syncs.find_one(sort=[("started_at", -1)])
+        
+        # Get total appointments in Gesden collection
+        gesden_appointments = await db.gesden_appointments.count_documents({})
+        synced_appointments = await db.gesden_appointments.count_documents({"synced_to_app": True})
+        
+        # Get pending consent deliveries
+        pending_consents = await db.consent_deliveries.count_documents({"delivery_status": "pending"})
+        
+        return {
+            "last_sync": latest_sync,
+            "gesden_appointments": gesden_appointments,
+            "synced_appointments": synced_appointments, 
+            "sync_percentage": (synced_appointments / gesden_appointments * 100) if gesden_appointments > 0 else 0,
+            "pending_consents": pending_consents,
+            "connection_status": "connected" if gesden_appointments > 0 else "disconnected"
+        }
+    except Exception as e:
+        logging.error(f"Error getting Gesden status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching Gesden status")
+
+@api_router.post("/gesden/sync")
+async def sync_gesden_data(background_tasks: BackgroundTasks):
+    """Trigger Gesden data synchronization"""
+    try:
+        # Create sync record
+        sync_record = GesdenSync(
+            sync_type="import",
+            status="pending"
+        )
+        sync_data = prepare_for_mongo(sync_record.dict())
+        await db.gesden_syncs.insert_one(sync_data)
+        
+        # Add background task for actual sync
+        background_tasks.add_task(process_gesden_sync, sync_record.id)
+        
+        return {"message": "Gesden sync initiated", "sync_id": sync_record.id}
+    except Exception as e:
+        logging.error(f"Error initiating Gesden sync: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error initiating sync")
+
+@api_router.get("/gesden/appointments")
+async def get_gesden_appointments(date: Optional[str] = None):
+    """Get Gesden appointments, optionally filtered by date"""
+    try:
+        filter_query = {}
+        if date:
+            target_date = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+            start_of_day = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_day = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            filter_query["date"] = {
+                "$gte": start_of_day.isoformat(),
+                "$lte": end_of_day.isoformat()
+            }
+        
+        appointments = await db.gesden_appointments.find(filter_query).sort("date", 1).to_list(1000)
+        return [GesdenAppointment(**parse_from_mongo(apt)) for apt in appointments]
+    except Exception as e:
+        logging.error(f"Error fetching Gesden appointments: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching appointments")
+
+@api_router.post("/gesden/appointments/receive")
+async def receive_gesden_appointment(appointment_data: dict):
+    """Receive appointment data directly from Gesden via Python script"""
+    try:
+        # Map Gesden data to our structure
+        gesden_appointment = GesdenAppointment(
+            gesden_id=appointment_data.get("id", str(uuid.uuid4())),
+            patient_number=appointment_data.get("NumPac", ""),
+            patient_name=f"{appointment_data.get('Nombre', '')} {appointment_data.get('Apellidos', '')}".strip(),
+            phone=appointment_data.get("TelMovil", ""),
+            date=datetime.fromisoformat(appointment_data.get("Fecha", datetime.now().isoformat())),
+            time=appointment_data.get("Hora", ""),
+            doctor_code=appointment_data.get("IdUsu", 0),
+            doctor_name=DOCTOR_CODES.get(appointment_data.get("IdUsu", 0), "Doctor no asignado"),
+            treatment_code=appointment_data.get("IdIcono", 0),
+            treatment_name=TREATMENT_CODES.get(appointment_data.get("IdIcono", 0), {}).get("name", "Tratamiento desconocido"),
+            status_code=appointment_data.get("IdSitC", 0),
+            status_name=STATUS_CODES.get(appointment_data.get("IdSitC", 0), "Estado desconocido"),
+            notes=appointment_data.get("Notas", ""),
+            duration=appointment_data.get("Duracion", 30)
+        )
+        
+        # Store in Gesden appointments collection
+        appointment_mongo_data = prepare_for_mongo(gesden_appointment.dict())
+        await db.gesden_appointments.insert_one(appointment_mongo_data)
+        
+        # Create corresponding appointment in main system
+        contact_id = await get_or_create_contact_from_gesden(gesden_appointment)
+        app_appointment = await create_appointment_from_gesden(gesden_appointment, contact_id)
+        
+        # Update Gesden appointment with app reference
+        await db.gesden_appointments.update_one(
+            {"id": gesden_appointment.id},
+            {"$set": {"synced_to_app": True, "app_appointment_id": app_appointment.id}}
+        )
+        
+        # Schedule consent delivery if needed
+        await schedule_consent_if_needed(gesden_appointment, app_appointment)
+        
+        return {"message": "Gesden appointment processed successfully", "appointment_id": app_appointment.id}
+    
+    except Exception as e:
+        logging.error(f"Error processing Gesden appointment: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing appointment")
+
+# Helper functions for Gesden integration
+async def get_or_create_contact_from_gesden(gesden_appointment: GesdenAppointment):
+    """Get existing contact or create new one from Gesden data"""
+    # Try to find existing contact by patient number or name
+    contact = await db.contacts.find_one({
+        "$or": [
+            {"patient_number": gesden_appointment.patient_number},
+            {"name": gesden_appointment.patient_name}
+        ]
+    })
+    
+    if contact:
+        return contact["id"]
+    
+    # Create new contact
+    new_contact = Contact(
+        name=gesden_appointment.patient_name,
+        phone=gesden_appointment.phone,
+        tags=["paciente", "gesden"],
+        notes=f"Importado desde Gesden - Número de paciente: {gesden_appointment.patient_number}"
+    )
+    
+    contact_data = prepare_for_mongo(new_contact.dict())
+    await db.contacts.insert_one(contact_data)
+    
+    return new_contact.id
+
+async def create_appointment_from_gesden(gesden_appointment: GesdenAppointment, contact_id: str):
+    """Create main appointment from Gesden appointment"""
+    # Map Gesden status to app status
+    status_mapping = {
+        0: AppointmentStatus.SCHEDULED,     # Planificada
+        1: AppointmentStatus.CANCELLED,     # Anulada
+        5: AppointmentStatus.COMPLETED,     # Finalizada  
+        7: AppointmentStatus.CONFIRMED,     # Confirmada
+        8: AppointmentStatus.CANCELLED      # Cancelada
+    }
+    
+    app_appointment = Appointment(
+        contact_id=contact_id,
+        contact_name=gesden_appointment.patient_name,
+        title=f"{gesden_appointment.treatment_name} - {gesden_appointment.doctor_name}",
+        date=gesden_appointment.date,
+        duration_minutes=gesden_appointment.duration or 30,
+        status=status_mapping.get(gesden_appointment.status_code, AppointmentStatus.SCHEDULED),
+        patient_number=gesden_appointment.patient_number,
+        phone=gesden_appointment.phone,
+        doctor=gesden_appointment.doctor_name,
+        treatment=gesden_appointment.treatment_name,
+        time=gesden_appointment.time
+    )
+    
+    appointment_data = prepare_for_mongo(app_appointment.dict())
+    await db.appointments.insert_one(appointment_data)
+    
+    return app_appointment
+
+async def schedule_consent_if_needed(gesden_appointment: GesdenAppointment, app_appointment: Appointment):
+    """Schedule consent delivery if treatment requires it"""
+    treatment_info = TREATMENT_CODES.get(gesden_appointment.treatment_code, {})
+    
+    # Check if treatment requires consent
+    if treatment_info.get("requires_consent", False):
+        # Get consent template for this treatment
+        template = await db.consent_templates.find_one({
+            "treatment_code": gesden_appointment.treatment_code,
+            "active": True
+        })
+        
+        if template:
+            # Calculate delivery date (day before at specified time)
+            delivery_date = gesden_appointment.date - timedelta(days=1)
+            delivery_time = template.get("send_hour", "10:00").split(":")
+            delivery_date = delivery_date.replace(
+                hour=int(delivery_time[0]),
+                minute=int(delivery_time[1]),
+                second=0,
+                microsecond=0
+            )
+            
+            consent_delivery = ConsentDelivery(
+                appointment_id=app_appointment.id,
+                consent_template_id=template["id"],
+                patient_name=gesden_appointment.patient_name,
+                patient_phone=gesden_appointment.phone,
+                treatment_code=gesden_appointment.treatment_code,
+                treatment_name=gesden_appointment.treatment_name,
+                scheduled_date=delivery_date
+            )
+            
+            delivery_data = prepare_for_mongo(consent_delivery.dict())
+            await db.consent_deliveries.insert_one(delivery_data)
+    
+    # Check if it's first appointment (requires LOPD)
+    elif treatment_info.get("requires_lopd", False) or gesden_appointment.treatment_code == 13:
+        # Schedule LOPD delivery immediately
+        lopd_template = await db.consent_templates.find_one({
+            "treatment_code": 13,  # First appointment LOPD template
+            "active": True
+        })
+        
+        if lopd_template:
+            consent_delivery = ConsentDelivery(
+                appointment_id=app_appointment.id,
+                consent_template_id=lopd_template["id"],
+                patient_name=gesden_appointment.patient_name,
+                patient_phone=gesden_appointment.phone,
+                treatment_code=13,
+                treatment_name="LOPD - Primera cita",
+                scheduled_date=datetime.now(timezone.utc),  # Send immediately
+                delivery_method="whatsapp"
+            )
+            
+            delivery_data = prepare_for_mongo(consent_delivery.dict())
+            await db.consent_deliveries.insert_one(delivery_data)
+
+async def process_gesden_sync(sync_id: str):
+    """Background task to process Gesden synchronization"""
+    try:
+        # Update sync status to running
+        await db.gesden_syncs.update_one(
+            {"id": sync_id},
+            {"$set": {"status": "running"}}
+        )
+        
+        # Here you would implement the actual sync logic
+        # For now, just mark as completed
+        await db.gesden_syncs.update_one(
+            {"id": sync_id},
+            {"$set": {
+                "status": "completed",
+                "completed_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+    except Exception as e:
+        logging.error(f"Error in Gesden sync background task: {str(e)}")
+        await db.gesden_syncs.update_one(
+            {"id": sync_id},
+            {"$set": {
+                "status": "failed",
+                "errors": [str(e)],
+                "completed_at": datetime.now(timezone.utc)
+            }}
+        )
+
 # Template Management Routes
 @api_router.get("/templates")
 async def get_templates():
