@@ -14,9 +14,9 @@ DB_DATABASE = 'GELITE'
 GOOGLE_SHEET_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ'  # Tu Google Sheet existente
 SERVICE_ACCOUNT_FILE = 'service-account-key.json'  # Archivo JSON de Service Account
 
-# App SaaS configuración
-SAAS_APP_URL = 'https://tu-app-saas.com/api/gesden/appointments/receive'  # Cambiar por tu URL real
-SAAS_API_KEY = 'tu-api-key-si-es-necesario'  # Si necesitas autenticación
+# App SaaS configuración - CONFIGURAR CON TU URL REAL
+SAAS_APP_URL = 'http://localhost:8001/api/gesden/appointments/receive'  # Para testing local
+SAAS_API_KEY = None  # No necesitamos autenticación por ahora
 
 # --- Logger ---
 def log_message(message):
