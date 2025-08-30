@@ -341,6 +341,75 @@ class ConversationStatus(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Treatment and Consent Management Models
+class TreatmentCode(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: int  # Gesden treatment code (9, 10, 11, 13, 16)
+    name: str
+    description: str
+    requires_consent: bool = False
+    consent_template_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ConsentTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    treatment_code: int
+    treatment_name: str
+    name: str
+    content: str
+    variables: List[str] = Field(default_factory=list)  # Variables like {nombre}, {fecha}, etc.
+    send_timing: str = "day_before"  # when to send: day_before, same_day, etc.
+    send_hour: str = "10:00"  # what time to send
+    active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ConsentDelivery(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    appointment_id: str
+    consent_template_id: str
+    patient_name: str
+    patient_phone: str
+    treatment_code: int
+    treatment_name: str
+    scheduled_date: datetime
+    delivery_status: str = "pending"  # pending, sent, delivered, failed
+    sent_at: Optional[datetime] = None
+    delivery_method: str = "whatsapp"  # whatsapp, email, sms
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Gesden Integration Models
+class GesdenSync(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sync_type: str  # "import", "export", "bidirectional"
+    status: str = "pending"  # pending, running, completed, failed
+    total_records: int = 0
+    processed_records: int = 0
+    errors: List[str] = Field(default_factory=list)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None
+    
+class GesdenAppointment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    gesden_id: str  # Original Gesden appointment ID
+    patient_number: str
+    patient_name: str
+    phone: Optional[str] = None
+    date: datetime
+    time: str
+    doctor_code: int
+    doctor_name: str
+    treatment_code: int
+    treatment_name: str
+    status_code: int
+    status_name: str
+    notes: Optional[str] = None
+    duration: Optional[int] = None
+    synced_to_app: bool = False
+    app_appointment_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class UrgencyClassification(BaseModel):
     color: str
     description: str
