@@ -1065,7 +1065,103 @@ async def verify_token(token: str = None):
         }
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
-        return {"valid": False, "message": "Error verifying token"}
+        return {"valid": False, "message": "Token verification error"}
+
+# Treatment Codes Routes
+@api_router.get("/treatment-codes")
+async def get_treatment_codes():
+    """Get all available treatment codes with their details"""
+    return [
+        {
+            "code": code,
+            "name": info["name"], 
+            "requires_consent": info.get("requires_consent", False),
+            "requires_lopd": info.get("requires_lopd", False)
+        }
+        for code, info in TREATMENT_CODES.items()
+    ]
+
+# Consent Template Routes  
+@api_router.post("/consent-templates", response_model=ConsentTemplate)
+async def create_consent_template(template: dict):
+    """Create a new consent template"""
+    template_obj = ConsentTemplate(**template)
+    template_data = prepare_for_mongo(template_obj.dict())
+    await db.consent_templates.insert_one(template_data)
+    return template_obj
+
+@api_router.get("/consent-templates", response_model=List[ConsentTemplate])
+async def get_consent_templates():
+    """Get all consent templates"""
+    templates = await db.consent_templates.find().to_list(1000)
+    return [ConsentTemplate(**parse_from_mongo(template)) for template in templates]
+
+@api_router.get("/consent-templates/by-treatment/{treatment_code}")
+async def get_consent_template_by_treatment(treatment_code: int):
+    """Get consent template for specific treatment"""
+    template = await db.consent_templates.find_one({
+        "treatment_code": treatment_code,
+        "active": True
+    })
+    if not template:
+        return None
+    return ConsentTemplate(**parse_from_mongo(template))
+
+@api_router.put("/consent-templates/{template_id}", response_model=ConsentTemplate)
+async def update_consent_template(template_id: str, updates: dict):
+    """Update consent template"""
+    update_data = {k: v for k, v in updates.items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    update_data = prepare_for_mongo(update_data)
+    
+    result = await db.consent_templates.update_one(
+        {"id": template_id}, 
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Consent template not found")
+    
+    updated_template = await db.consent_templates.find_one({"id": template_id})
+    return ConsentTemplate(**parse_from_mongo(updated_template))
+
+# Consent Delivery Routes
+@api_router.post("/consent-deliveries", response_model=ConsentDelivery)
+async def create_consent_delivery(delivery: dict):
+    """Schedule consent delivery for an appointment"""
+    delivery_obj = ConsentDelivery(**delivery)
+    delivery_data = prepare_for_mongo(delivery_obj.dict())
+    await db.consent_deliveries.insert_one(delivery_data)
+    return delivery_obj
+
+@api_router.get("/consent-deliveries")
+async def get_consent_deliveries(status: Optional[str] = None):
+    """Get consent deliveries, optionally filtered by status"""
+    filter_query = {}
+    if status:
+        filter_query["delivery_status"] = status
+    
+    deliveries = await db.consent_deliveries.find(filter_query).sort("scheduled_date", 1).to_list(1000)
+    return [ConsentDelivery(**parse_from_mongo(delivery)) for delivery in deliveries]
+
+@api_router.put("/consent-deliveries/{delivery_id}/status")
+async def update_consent_delivery_status(delivery_id: str, status_data: dict):
+    """Update consent delivery status"""
+    update_fields = {
+        "delivery_status": status_data.get("status", "pending")
+    }
+    if status_data.get("status") == "sent":
+        update_fields["sent_at"] = datetime.now(timezone.utc)
+    
+    result = await db.consent_deliveries.update_one(
+        {"id": delivery_id},
+        {"$set": update_fields}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Consent delivery not found")
+    
+    return {"message": "Consent delivery status updated successfully"}
 
 # Template Management Routes
 @api_router.get("/templates")
