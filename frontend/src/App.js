@@ -16,6 +16,7 @@ import { toast, Toaster } from "sonner";
 import SettingsContent from "./components/ui/settings";
 import VoiceAssistantWidget from "./components/VoiceAssistantWidget";
 import WhatsAppManager from "./components/WhatsAppManager";
+import GesdenManagement from './components/ui/gesden-management';
 
 // Authentication Context
 const AuthContext = createContext();
