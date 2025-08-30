@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 class OmniDeskAPITester:
-    def __init__(self, base_url="https://dental-clinic-app-1.preview.emergentagent.com"):
+    def __init__(self, base_url="https://rubio-clinic.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
