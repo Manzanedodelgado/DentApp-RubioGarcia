@@ -2751,6 +2751,7 @@ logger = logging.getLogger(__name__)
 async def startup_event():
     """Start background tasks on app startup"""
     start_scheduler()
+    await initialize_default_consent_templates()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
