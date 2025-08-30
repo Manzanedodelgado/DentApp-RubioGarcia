@@ -59,9 +59,15 @@ def test_google_sheets_connection():
         print(f"\n4️⃣ Abriendo Google Sheet ID: {GOOGLE_SHEET_ID}...")
         try:
             spreadsheet = gc.open_by_key(GOOGLE_SHEET_ID)
-            sheet = spreadsheet.sheet1  # Primera hoja
-            print(f"   ✅ Sheet abierto: '{spreadsheet.title}'")
-            print(f"   📄 Hoja activa: '{sheet.title}'")
+            
+            # Intentar usar la hoja TestSync
+            try:
+                sheet = spreadsheet.worksheet("TestSync")
+                print(f"   ✅ Sheet abierto: '{spreadsheet.title}'")
+                print(f"   📄 Hoja activa: 'TestSync' (sin protecciones)")
+            except gspread.exceptions.WorksheetNotFound:
+                sheet = spreadsheet.sheet1  # Fallback a primera hoja
+                print(f"   ⚠️ Hoja TestSync no encontrada, usando: '{sheet.title}'")
         except gspread.SpreadsheetNotFound:
             print(f"   ❌ ERROR: Google Sheet no encontrado o sin acceso")
             print(f"   💡 Verifica que compartiste el sheet con: {service_email}")
