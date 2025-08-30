@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Implementar capacidades de IA en la sección de Configuración para crear un asistente virtual con voz donde se puedan dar comandos como enviar mensajes a pacientes. Crear automatizaciones para envío de recordatorios el día anterior a las 16:00h, mandar mensajes en nuevas citas, y enviar consentimientos informados para cirugías. Implementar un widget PWA para iPhone para hablar con la IA."
+user_problem_statement: "Integrar la gestión del flujo de trabajo externo Gesden (SQL Server, Python script, Make.com webhooks, Flask API) en la aplicación SaaS para una administración integral. Implementar sistema de consentimientos informados automáticos basado en códigos de tratamiento: Cirugía e Implantes (10), Periodoncia (9), Ortodoncia (11), Endodoncia (16), y LOPD para primeras citas (13). Eliminar dependencia de Make.com creando sincronización directa Gesden ↔ SaaS."
 
 backend:
   - task: "Fix asyncio-cron dependency error"
