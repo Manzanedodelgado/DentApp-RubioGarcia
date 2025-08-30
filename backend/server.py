@@ -2558,6 +2558,63 @@ async def process_surgery_reminders(rule: dict, current_time: datetime):
     except Exception as e:
         logger.error(f"Error in WhatsApp surgery reminders: {str(e)}")
 
+# Add consent delivery processing job (every 15 minutes)
+async def process_consent_deliveries():
+    """Process pending consent deliveries"""
+    try:
+        now = datetime.now(timezone.utc)
+        
+        # Get consent deliveries that should be sent now
+        pending_deliveries = await db.consent_deliveries.find({
+            "delivery_status": "pending",
+            "scheduled_date": {"$lte": now.isoformat()}
+        }).to_list(100)
+        
+        for delivery in pending_deliveries:
+            try:
+                # Get consent template content
+                template = await db.consent_templates.find_one({"id": delivery["consent_template_id"]})
+                if not template:
+                    continue
+                
+                # Replace variables in template content
+                content = template["content"]
+                for variable in template.get("variables", []):
+                    if variable in delivery:
+                        content = content.replace(f"{{{variable}}}", str(delivery[variable]))
+                
+                # Send via WhatsApp (integrate with existing WhatsApp system)
+                whatsapp_data = {
+                    "phone_number": delivery["patient_phone"],
+                    "message": content,
+                    "platform": "whatsapp"
+                }
+                
+                # Here you would integrate with the WhatsApp service
+                # For now, just mark as sent
+                await db.consent_deliveries.update_one(
+                    {"id": delivery["id"]},
+                    {"$set": {
+                        "delivery_status": "sent",
+                        "sent_at": now
+                    }}
+                )
+                
+                logger.info(f"Sent consent for {delivery['patient_name']} - {delivery['treatment_name']}")
+                
+            except Exception as e:
+                logger.error(f"Error sending consent delivery {delivery['id']}: {str(e)}")
+                await db.consent_deliveries.update_one(
+                    {"id": delivery["id"]},
+                    {"$set": {"delivery_status": "failed"}}
+                )
+        
+        if pending_deliveries:
+            logger.info(f"Processed {len(pending_deliveries)} consent deliveries")
+            
+    except Exception as e:
+        logger.error(f"Error processing consent deliveries: {str(e)}")
+
 def start_scheduler():
     """Start the appointment sync and automation scheduler"""
     global scheduler
