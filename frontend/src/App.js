@@ -2881,6 +2881,8 @@ function MainDashboard() {
         return <Messages />;
       case "ai-training":
         return <AITraining />;
+      case "gesden":
+        return <GesdenManagement />;
       case "settings":
         return <SettingsPage />;
       default:
