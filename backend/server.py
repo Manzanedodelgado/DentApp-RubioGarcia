@@ -424,6 +424,36 @@ URGENCY_COLORS = {
     "green": UrgencyClassification(color="green", description="Atendido satisfactoriamente", priority=5)
 }
 
+# Treatment codes for consent management
+TREATMENT_CODES = {
+    9: {"name": "Periodoncia", "requires_consent": True},
+    10: {"name": "Cirugía e Implantes", "requires_consent": True},
+    11: {"name": "Ortodoncia", "requires_consent": True},
+    13: {"name": "Primera cita", "requires_consent": False, "requires_lopd": True},
+    16: {"name": "Endodoncia", "requires_consent": True},
+    1: {"name": "Revisión", "requires_consent": False},
+    2: {"name": "Urgencia", "requires_consent": False},
+    14: {"name": "Higiene dental", "requires_consent": False}
+}
+
+# Doctor codes from Gesden  
+DOCTOR_CODES = {
+    3: "Dr. Mario Rubio",
+    4: "Dra. Irene García", 
+    8: "Dra. Virginia Tresgallo",
+    10: "Dra. Miriam Carrasco",
+    12: "Dr. Juan Antonio Manzanedo"
+}
+
+# Status codes from Gesden
+STATUS_CODES = {
+    0: "Planificada",
+    1: "Anulada", 
+    5: "Finalizada",
+    7: "Confirmada",
+    8: "Cancelada"
+}
+
 # Helper functions
 def prepare_for_mongo(data):
     if isinstance(data, dict):
