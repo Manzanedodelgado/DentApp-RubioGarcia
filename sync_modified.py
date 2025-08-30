@@ -45,7 +45,15 @@ def send_to_google_sheets(data):
             
             # Conectar a Google Sheets
             gc = gspread.authorize(credentials)
-            sheet = gc.open_by_key(GOOGLE_SHEET_ID).sheet1
+            spreadsheet = gc.open_by_key(GOOGLE_SHEET_ID)
+            
+            # Intentar usar hoja "TestSync" primero, luego "Hoja 1"
+            try:
+                sheet = spreadsheet.worksheet("TestSync")
+                log_message("    📋 Usando hoja 'TestSync'")
+            except gspread.exceptions.WorksheetNotFound:
+                sheet = spreadsheet.sheet1
+                log_message("    📋 Usando 'Hoja 1' (principal)")
             
             log_message("    📝 Usando Service Account para escribir...")
             
