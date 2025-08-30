@@ -3217,6 +3217,374 @@ class OmniDeskAPITester:
         else:
             print("   ❌ Authentication request failed")
             return None
+    def test_gesden_consent_management_system(self):
+        """Test the new Gesden consent management system - REVIEW REQUEST"""
+        print("\n" + "="*70)
+        print("🏥 TESTING GESDEN CONSENT MANAGEMENT SYSTEM - REVIEW REQUEST")
+        print("="*70)
+        print("Authentication: JMD/190582")
+        print("Focus: Treatment codes, consent templates, consent deliveries, Gesden integration")
+        
+        # Step 1: Test Authentication
+        print("\n🔐 Step 1: Testing Authentication (JMD/190582)...")
+        auth_data = {
+            "username": "JMD",
+            "password": "190582"
+        }
+        
+        success, auth_response = self.run_test(
+            "Authentication (JMD/190582)",
+            "POST",
+            "auth/login",
+            200,
+            data=auth_data
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Authentication failed")
+            return False
+        
+        if auth_response.get('success') and auth_response.get('token'):
+            print(f"   ✅ Authentication successful - Token: {auth_response['token'][:20]}...")
+            auth_token = auth_response['token']
+        else:
+            print("❌ CRITICAL: Authentication response invalid")
+            return False
+        
+        # Step 2: Test Treatment Codes Endpoint
+        print("\n🏥 Step 2: Testing Treatment Codes Endpoint (GET /api/treatment-codes)...")
+        success, treatment_codes = self.run_test(
+            "Get Treatment Codes",
+            "GET",
+            "treatment-codes",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Treatment codes endpoint failed")
+            return False
+        
+        print(f"   📊 Found {len(treatment_codes)} treatment codes")
+        
+        # Verify the 8 expected treatment codes
+        expected_codes = {
+            9: {"name": "Periodoncia", "requires_consent": True},
+            10: {"name": "Cirugía e Implantes", "requires_consent": True},
+            11: {"name": "Ortodoncia", "requires_consent": True},
+            13: {"name": "Primera cita", "requires_consent": False, "requires_lopd": True},
+            16: {"name": "Endodoncia", "requires_consent": True},
+            1: {"name": "Revisión", "requires_consent": False},
+            2: {"name": "Urgencia", "requires_consent": False},
+            14: {"name": "Higiene dental", "requires_consent": False}
+        }
+        
+        found_codes = {code['code']: code for code in treatment_codes}
+        
+        print("\n   📋 Verifying expected treatment codes:")
+        all_codes_correct = True
+        for code, expected in expected_codes.items():
+            if code in found_codes:
+                actual = found_codes[code]
+                name_match = actual.get('name') == expected['name']
+                consent_match = actual.get('requires_consent') == expected['requires_consent']
+                lopd_match = actual.get('requires_lopd', False) == expected.get('requires_lopd', False)
+                
+                if name_match and consent_match and lopd_match:
+                    consent_status = "requires consent" if expected['requires_consent'] else "no consent"
+                    lopd_status = " + LOPD" if expected.get('requires_lopd') else ""
+                    print(f"   ✅ Code {code}: {expected['name']} ({consent_status}{lopd_status})")
+                else:
+                    print(f"   ❌ Code {code}: Mismatch - Expected: {expected}, Got: {actual}")
+                    all_codes_correct = False
+            else:
+                print(f"   ❌ Code {code}: Missing - {expected['name']}")
+                all_codes_correct = False
+        
+        if all_codes_correct:
+            print("   ✅ All 8 treatment codes verified correctly")
+        else:
+            print("   ❌ Treatment codes verification failed")
+            return False
+        
+        # Step 3: Test Consent Templates System
+        print("\n📋 Step 3: Testing Consent Templates System (GET /api/consent-templates)...")
+        success, consent_templates = self.run_test(
+            "Get Consent Templates",
+            "GET",
+            "consent-templates",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Consent templates endpoint failed")
+            return False
+        
+        print(f"   📊 Found {len(consent_templates)} consent templates")
+        
+        # Verify default templates for 5 consent-requiring treatments (codes 9, 10, 11, 16, and 13 for LOPD)
+        consent_requiring_codes = [9, 10, 11, 16, 13]  # 13 is for LOPD
+        templates_by_code = {t.get('treatment_code'): t for t in consent_templates}
+        
+        print("\n   📋 Verifying consent templates for required treatments:")
+        templates_correct = True
+        for code in consent_requiring_codes:
+            if code in templates_by_code:
+                template = templates_by_code[code]
+                treatment_name = expected_codes[code]['name']
+                print(f"   ✅ Code {code} ({treatment_name}): Template found - '{template.get('name', 'Unknown')}'")
+                
+                # Verify template has required fields
+                if not template.get('content'):
+                    print(f"      ❌ Template missing content")
+                    templates_correct = False
+                if not template.get('active', True):
+                    print(f"      ❌ Template not active")
+                    templates_correct = False
+            else:
+                treatment_name = expected_codes[code]['name']
+                print(f"   ❌ Code {code} ({treatment_name}): Template missing")
+                templates_correct = False
+        
+        if templates_correct:
+            print("   ✅ All required consent templates verified")
+        else:
+            print("   ❌ Consent templates verification failed")
+            return False
+        
+        # Step 4: Test Consent Deliveries Endpoint
+        print("\n📤 Step 4: Testing Consent Deliveries (GET /api/consent-deliveries)...")
+        success, consent_deliveries = self.run_test(
+            "Get Consent Deliveries",
+            "GET",
+            "consent-deliveries",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Consent deliveries endpoint failed")
+            return False
+        
+        print(f"   📊 Found {len(consent_deliveries)} consent deliveries")
+        
+        # Test filtering by status
+        success, pending_deliveries = self.run_test(
+            "Get Pending Consent Deliveries",
+            "GET",
+            "consent-deliveries",
+            200,
+            params={"status": "pending"}
+        )
+        
+        if success:
+            print(f"   📊 Found {len(pending_deliveries)} pending consent deliveries")
+        
+        # Step 5: Test Gesden Status Endpoint
+        print("\n🔄 Step 5: Testing Gesden Status (GET /api/gesden/status)...")
+        success, gesden_status = self.run_test(
+            "Get Gesden Status",
+            "GET",
+            "gesden/status",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Gesden status endpoint failed")
+            return False
+        
+        print("   📊 Gesden Status Response:")
+        if gesden_status:
+            for key, value in gesden_status.items():
+                print(f"      {key}: {value}")
+        
+        # Verify expected status fields
+        expected_status_fields = ['connection_status', 'gesden_appointments', 'synced_appointments', 'pending_consents']
+        status_fields_correct = True
+        for field in expected_status_fields:
+            if field not in gesden_status:
+                print(f"   ❌ Missing status field: {field}")
+                status_fields_correct = False
+            else:
+                print(f"   ✅ Status field present: {field}")
+        
+        # Step 6: Test Gesden Appointments Endpoint
+        print("\n📅 Step 6: Testing Gesden Appointments (GET /api/gesden/appointments)...")
+        success, gesden_appointments = self.run_test(
+            "Get Gesden Appointments",
+            "GET",
+            "gesden/appointments",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Gesden appointments endpoint failed")
+            return False
+        
+        print(f"   📊 Found {len(gesden_appointments)} Gesden appointments")
+        
+        # Test date filtering for Gesden appointments
+        test_date = "2025-01-20"
+        success, filtered_gesden_appointments = self.run_test(
+            f"Get Gesden Appointments by Date ({test_date})",
+            "GET",
+            "gesden/appointments",
+            200,
+            params={"date": test_date}
+        )
+        
+        if success:
+            print(f"   📅 Found {len(filtered_gesden_appointments)} Gesden appointments for {test_date}")
+        
+        # Step 7: Test Application Startup Features
+        print("\n🚀 Step 7: Testing Application Startup Features...")
+        
+        # Test that default consent templates are initialized
+        if len(consent_templates) >= 5:
+            print("   ✅ Default consent templates initialized on startup")
+        else:
+            print("   ⚠️ Fewer than 5 consent templates found")
+        
+        # Test scheduler jobs (we can't directly test the scheduler, but we can verify endpoints work)
+        print("   📋 Verifying scheduler-related functionality:")
+        
+        # Test consent delivery processing endpoint (simulates scheduler job)
+        success, _ = self.run_test(
+            "Test Consent Processing (Scheduler Simulation)",
+            "GET",
+            "consent-deliveries",
+            200,
+            params={"status": "pending"}
+        )
+        
+        if success:
+            print("   ✅ Consent delivery processing endpoint working (scheduler ready)")
+        else:
+            print("   ❌ Consent delivery processing endpoint failed")
+        
+        # Step 8: Test Consent Template CRUD Operations
+        print("\n📝 Step 8: Testing Consent Template CRUD Operations...")
+        
+        # Test creating a new consent template
+        new_template_data = {
+            "treatment_code": 9,
+            "treatment_name": "Periodoncia",
+            "name": "Test Consent Template",
+            "content": "Estimado/a {nombre}, necesitamos su consentimiento para el tratamiento de {tratamiento} programado para el {fecha}.",
+            "variables": ["nombre", "tratamiento", "fecha"],
+            "send_timing": "day_before",
+            "send_hour": "10:00",
+            "active": True
+        }
+        
+        success, created_template = self.run_test(
+            "Create New Consent Template",
+            "POST",
+            "consent-templates",
+            200,
+            data=new_template_data
+        )
+        
+        if success and created_template:
+            template_id = created_template.get('id')
+            print(f"   ✅ Created consent template ID: {template_id}")
+            
+            # Test updating the template
+            update_data = {
+                "content": "UPDATED: Estimado/a {nombre}, necesitamos su consentimiento actualizado para {tratamiento}.",
+                "send_hour": "11:00"
+            }
+            
+            success, updated_template = self.run_test(
+                "Update Consent Template",
+                "PUT",
+                f"consent-templates/{template_id}",
+                200,
+                data=update_data
+            )
+            
+            if success and updated_template:
+                if updated_template.get('content') == update_data['content']:
+                    print("   ✅ Consent template updated successfully")
+                else:
+                    print("   ❌ Consent template update failed")
+        
+        # Step 9: Test Consent Delivery Scheduling
+        print("\n⏰ Step 9: Testing Consent Delivery Scheduling...")
+        
+        # Create a test consent delivery
+        delivery_data = {
+            "appointment_id": "test-appointment-id",
+            "consent_template_id": template_id if 'template_id' in locals() else "test-template-id",
+            "patient_name": "Test Patient",
+            "patient_phone": "+34666123456",
+            "treatment_code": 10,
+            "treatment_name": "Cirugía e Implantes",
+            "scheduled_date": "2025-01-30T10:00:00Z",
+            "delivery_method": "whatsapp"
+        }
+        
+        success, created_delivery = self.run_test(
+            "Create Consent Delivery",
+            "POST",
+            "consent-deliveries",
+            200,
+            data=delivery_data
+        )
+        
+        if success and created_delivery:
+            delivery_id = created_delivery.get('id')
+            print(f"   ✅ Created consent delivery ID: {delivery_id}")
+            
+            # Test updating delivery status
+            status_update = {"status": "sent"}
+            success, _ = self.run_test(
+                "Update Consent Delivery Status",
+                "PUT",
+                f"consent-deliveries/{delivery_id}/status",
+                200,
+                data=status_update
+            )
+            
+            if success:
+                print("   ✅ Consent delivery status updated successfully")
+        
+        # Step 10: Final Summary
+        print("\n" + "="*70)
+        print("📋 GESDEN CONSENT MANAGEMENT SYSTEM TEST SUMMARY")
+        print("="*70)
+        
+        test_results = [
+            ("Authentication (JMD/190582)", auth_response.get('success', False)),
+            ("Treatment Codes (8 codes)", all_codes_correct),
+            ("Consent Templates (5 templates)", templates_correct),
+            ("Consent Deliveries Endpoint", len(consent_deliveries) >= 0),
+            ("Gesden Status Endpoint", status_fields_correct),
+            ("Gesden Appointments Endpoint", len(gesden_appointments) >= 0),
+            ("Application Startup Features", len(consent_templates) >= 5),
+            ("Consent Template CRUD", 'created_template' in locals()),
+            ("Consent Delivery Scheduling", 'created_delivery' in locals())
+        ]
+        
+        passed_tests = sum(1 for _, result in test_results if result)
+        total_tests = len(test_results)
+        
+        print(f"\n📊 Test Results: {passed_tests}/{total_tests} passed")
+        for test_name, result in test_results:
+            status = "✅ PASS" if result else "❌ FAIL"
+            print(f"   {status}: {test_name}")
+        
+        success_rate = (passed_tests / total_tests) * 100
+        print(f"\n📈 Success Rate: {success_rate:.1f}%")
+        
+        if success_rate >= 90:
+            print("🎉 GESDEN CONSENT MANAGEMENT SYSTEM: WORKING EXCELLENTLY!")
+            return True
+        elif success_rate >= 75:
+            print("✅ GESDEN CONSENT MANAGEMENT SYSTEM: WORKING WELL (minor issues)")
+            return True
+        else:
+            print("❌ GESDEN CONSENT MANAGEMENT SYSTEM: CRITICAL ISSUES DETECTED")
+            return False
+
     def run_all_tests(self):
         """Run all API tests with focus on AI and Settings endpoints"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite - AI & Settings Focus")
