@@ -2637,8 +2637,16 @@ def start_scheduler():
             replace_existing=True
         )
         
+        # Consent delivery processing every 15 minutes
+        scheduler.add_job(
+            process_consent_deliveries,
+            trigger=IntervalTrigger(minutes=15),  # Run every 15 minutes
+            id='process_consent_deliveries',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly)")
+        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly) + consent deliveries (15min)")
 
 def stop_scheduler():
     """Stop the appointment sync scheduler"""
