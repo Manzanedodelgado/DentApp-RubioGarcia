@@ -2594,6 +2594,79 @@ def stop_scheduler():
 # Include the router in the main app
 app.include_router(api_router)
 
+# Initialize default consent templates
+async def initialize_default_consent_templates():
+    """Initialize default consent templates if they don't exist"""
+    try:
+        # Check if templates already exist
+        existing_templates = await db.consent_templates.count_documents({})
+        if existing_templates > 0:
+            return  # Templates already exist
+        
+        default_templates = [
+            {
+                "treatment_code": 9,
+                "treatment_name": "Periodoncia",
+                "name": "Consentimiento Periodontal",
+                "content": "Estimado/a {nombre},\n\nEn relación a su cita de periodoncia programada para el día {fecha} a las {hora} con {doctor}, le enviamos el consentimiento informado que debe revisar antes de su tratamiento.\n\nEl tratamiento periodontal puede incluir:\n- Raspado y alisado radicular\n- Curetajes\n- Posibles medicaciones locales\n\nPor favor, confirme la recepción de este mensaje.\n\nSaludos,\nRUBIO GARCÍA DENTAL\nTeléfono: 916 410 841",
+                "variables": ["nombre", "fecha", "hora", "doctor"],
+                "send_timing": "day_before",
+                "send_hour": "10:00",
+                "active": True
+            },
+            {
+                "treatment_code": 10,
+                "treatment_name": "Cirugía e Implantes",
+                "name": "Consentimiento Quirúrgico",
+                "content": "Estimado/a {nombre},\n\nEn relación a su cirugía programada para el día {fecha} a las {hora} con {doctor}, le enviamos el consentimiento informado que debe revisar y firmar antes del procedimiento.\n\nEl procedimiento quirúrgico incluye:\n- Posible colocación de implantes\n- Cirugía periodontal\n- Extracciones complejas\n\nRiesgos y complicaciones:\n- Inflamación postoperatoria\n- Posible sangrado\n- Dolor temporal\n- Posible fallo del implante\n\nInstrucciones preoperatorias:\n- No fumar 24h antes\n- Medicación según prescripción\n- Acudir con acompañante\n\nPor favor, confirme la recepción y comprensión.\n\nSaludos,\nRUBIO GARCÍA DENTAL\nTeléfono: 916 410 841",
+                "variables": ["nombre", "fecha", "hora", "doctor"],
+                "send_timing": "day_before",
+                "send_hour": "10:00",
+                "active": True
+            },
+            {
+                "treatment_code": 11,
+                "treatment_name": "Ortodoncia",
+                "name": "Consentimiento Ortodóncico",
+                "content": "Estimado/a {nombre},\n\nEn relación a su tratamiento de ortodoncia programado para el día {fecha} a las {hora} con {doctor}, le enviamos el consentimiento informado.\n\nEl tratamiento ortodóncico incluye:\n- Colocación de aparatología fija o removible\n- Controles periódicos mensuales\n- Posibles molestias iniciales\n- Duración estimada del tratamiento\n\nRecomendaciones importantes:\n- Higiene bucal estricta\n- Evitar alimentos duros o pegajosos\n- Acudir a todas las citas de control\n- Uso correcto de la aparatología\n\nPor favor, confirme la recepción de este mensaje.\n\nSaludos,\nRUBIO GARCÍA DENTAL\nTeléfono: 916 410 841",
+                "variables": ["nombre", "fecha", "hora", "doctor"],
+                "send_timing": "day_before",
+                "send_hour": "10:00",
+                "active": True
+            },
+            {
+                "treatment_code": 16,
+                "treatment_name": "Endodoncia",
+                "name": "Consentimiento Endodóncico",
+                "content": "Estimado/a {nombre},\n\nEn relación a su tratamiento de endodoncia programado para el día {fecha} a las {hora} con {doctor}, le enviamos el consentimiento informado.\n\nEl tratamiento endodóncico (tratamiento de conductos) incluye:\n- Eliminación del tejido pulpar infectado\n- Limpieza y desinfección de los conductos\n- Sellado de los conductos radiculares\n- Posible colocación de corona posterior\n\nPosibles complicaciones:\n- Dolor postoperatorio temporal\n- Posible necesidad de retratamiento\n- Fractura del instrumento (raro)\n- Perforación radicular (raro)\n\nCuidados posteriores:\n- Evitar masticación en la zona tratada\n- Medicación según prescripción\n- Acudir a cita de control\n\nPor favor, confirme la recepción de este mensaje.\n\nSaludos,\nRUBIO GARCÍA DENTAL\nTeléfono: 916 410 841",
+                "variables": ["nombre", "fecha", "hora", "doctor"],
+                "send_timing": "day_before",
+                "send_hour": "10:00",
+                "active": True
+            },
+            {
+                "treatment_code": 13,
+                "treatment_name": "Primera cita",
+                "name": "LOPD - Información de Protección de Datos",
+                "content": "Estimado/a {nombre},\n\nBienvenido/a a RUBIO GARCÍA DENTAL.\n\nDe acuerdo con la Ley Orgánica de Protección de Datos (LOPD), le informamos que:\n\n📋 TRATAMIENTO DE DATOS:\n- Sus datos se utilizan exclusivamente para su atención médica\n- Gestión de citas y tratamientos\n- Comunicaciones relacionadas con su salud dental\n\n🔒 PROTECCIÓN:\n- Sus datos están protegidos y son confidenciales\n- Solo personal autorizado tiene acceso\n- No se ceden a terceros sin su consentimiento\n\n⚖️ SUS DERECHOS:\n- Acceso, rectificación y cancelación de datos\n- Puede revocar el consentimiento en cualquier momento\n- Información disponible en recepción\n\n📍 RESPONSABLE:\nRUBIO GARCÍA DENTAL\nCalle Mayor 19, Alcorcón\nTeléfono: 916 410 841\n\nPor favor, confirme que ha recibido esta información.\n\nGracias por confiar en nosotros.\n\nSaludos,\nRUBIO GARCÍA DENTAL",
+                "variables": ["nombre"],
+                "send_timing": "same_day",
+                "send_hour": "09:00",
+                "active": True
+            }
+        ]
+        
+        # Insert default templates
+        for template_data in default_templates:
+            template_obj = ConsentTemplate(**template_data)
+            mongo_data = prepare_for_mongo(template_obj.dict())
+            await db.consent_templates.insert_one(mongo_data)
+        
+        logger.info(f"Initialized {len(default_templates)} default consent templates")
+        
+    except Exception as e:
+        logger.error(f"Error initializing consent templates: {str(e)}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
