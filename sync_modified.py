@@ -84,6 +84,62 @@ def send_to_google_sheets(data):
         log_message(f"❌ ERROR Google Sheets: {e}")
         return False
 
+def send_to_google_sheets_api_rest(data):
+    """
+    Método alternativo: enviar a Google Sheets usando API REST
+    """
+    try:
+        # Preparar datos para la API REST
+        row_data = [
+            data.get('Registro', ''),
+            data.get('CitMod', ''),
+            data.get('FechaAlta', ''),
+            data.get('NumPac', ''),
+            data.get('Apellidos', ''),
+            data.get('Nombre', ''),
+            data.get('TelMovil', ''),
+            data.get('Fecha', ''),
+            data.get('Hora', ''),
+            data.get('EstadoCita', ''),
+            data.get('Tratamiento', ''),
+            data.get('Odontologo', ''),
+            data.get('Notas', ''),
+            data.get('Duracion', ''),
+            datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Timestamp
+        ]
+        
+        # URL de la API para append
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values/A:O:append"
+        
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        
+        payload = {
+            "range": "A:O",
+            "majorDimension": "ROWS",
+            "values": [row_data]
+        }
+        
+        params = {
+            'key': GOOGLE_API_KEY,
+            'valueInputOption': 'RAW',
+            'insertDataOption': 'INSERT_ROWS'
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, params=params, timeout=30)
+        
+        if response.status_code == 200:
+            log_message(f"✅ Google Sheets REST API: Registro {data['Registro']} enviado correctamente")
+            return True
+        else:
+            log_message(f"❌ ERROR API REST: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        log_message(f"❌ ERROR Google Sheets API REST: {e}")
+        return False
+
 # --- Función para enviar a App SaaS ---
 def send_to_saas_app(data):
     """
