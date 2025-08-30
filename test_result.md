@@ -105,6 +105,18 @@
 user_problem_statement: "Integrar la gestión del flujo de trabajo externo Gesden (SQL Server, Python script, Make.com webhooks, Flask API) en la aplicación SaaS para una administración integral. Implementar sistema de consentimientos informados automáticos basado en códigos de tratamiento: Cirugía e Implantes (10), Periodoncia (9), Ortodoncia (11), Endodoncia (16), y LOPD para primeras citas (13). Eliminar dependencia de Make.com creando sincronización directa Gesden ↔ SaaS."
 
 backend:
+  - task: "Implement Gesden consent management system"
+    implemented: true
+    working: false
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Implemented comprehensive consent management system with treatment codes (9,10,11,13,16), consent templates, consent delivery tracking, Gesden integration endpoints, and automated consent scheduling. Added default consent templates for all required treatments including LOPD. Created background jobs for processing consent deliveries every 15 minutes. System ready for backend testing."
+
   - task: "Fix asyncio-cron dependency error"
     implemented: true
     working: true
