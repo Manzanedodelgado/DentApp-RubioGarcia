@@ -28,22 +28,33 @@ def send_to_google_sheets(data):
     """
     Envía datos directamente a Google Sheets usando la API
     Reemplaza la funcionalidad de Make.com
+    MÉTODO ALTERNATIVO: Usando API REST directamente
     """
     try:
-        # Configurar credenciales
-        scopes = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive'
-        ]
-        
-        credentials = Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, 
-            scopes=scopes
-        )
-        
-        # Conectar a Google Sheets
-        gc = gspread.authorize(credentials)
-        sheet = gc.open_by_key(GOOGLE_SHEET_ID).sheet1
+        # MÉTODO 1: Intentar con Service Account
+        try:
+            scopes = [
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive'
+            ]
+            
+            credentials = Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, 
+                scopes=scopes
+            )
+            
+            # Conectar a Google Sheets
+            gc = gspread.authorize(credentials)
+            sheet = gc.open_by_key(GOOGLE_SHEET_ID).sheet1
+            
+            log_message("    📝 Usando Service Account para escribir...")
+            
+        except Exception as e:
+            log_message(f"    ⚠️  Service Account falló: {e}")
+            log_message("    🔄 Intentando método alternativo con API REST...")
+            
+            # MÉTODO 2: Usar API REST directamente
+            return send_to_google_sheets_api_rest(data)
         
         # Preparar fila de datos (en el mismo orden que tu Google Sheet actual)
         row_data = [
