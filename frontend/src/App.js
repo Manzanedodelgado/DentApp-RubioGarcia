@@ -1898,106 +1898,287 @@ const UserManagement = () => {
   );
 };
 
-// Communications Component - WhatsApp-style interface with patient chat and AI
+// Communications Component - WhatsApp Conversations Manager
 const Communications = () => {
-  const [contacts, setContacts] = useState([]);
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [aiEnabled, setAiEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [patientHistory, setPatientHistory] = useState([]);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
-  // Fetch contacts (patients)
-  const fetchContacts = async () => {
+  // Fetch all conversations
+  const fetchConversations = async () => {
     try {
-      const response = await axios.get(`${API}/contacts`);
-      setContacts(response.data);
+      setLoading(true);
+      const response = await axios.get(`${API}/conversations`);
+      setConversations(response.data);
     } catch (error) {
-      console.error("Error fetching contacts:", error);
-    }
-  };
-
-  // Fetch patient appointment history
-  const fetchPatientHistory = async (contactId) => {
-    try {
-      const response = await axios.get(`${API}/appointments`);
-      const patientAppointments = response.data.filter(apt => apt.contact_id === contactId);
-      // Sort by date, most recent first
-      patientAppointments.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setPatientHistory(patientAppointments.slice(0, 10)); // Last 10 appointments
-    } catch (error) {
-      console.error("Error fetching patient history:", error);
-      setPatientHistory([]);
-    }
-  };
-
-  // Send message to patient
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedContact) return;
-
-    setLoading(true);
-    try {
-      // Here you would integrate with WhatsApp API
-      const messageData = {
-        contact_id: selectedContact.id,
-        message: newMessage,
-        type: 'outbound',
-        timestamp: new Date().toISOString()
-      };
-
-      // Add to local messages (simulate sending)
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        ...messageData,
-        status: 'sent'
-      }]);
-
-      setNewMessage('');
-      toast.success("Mensaje enviado correctamente");
-    } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Error enviando mensaje");
+      console.error("Error fetching conversations:", error);
+      toast.error("Error cargando conversaciones");
     } finally {
       setLoading(false);
     }
   };
 
-  // Format time
+  // Fetch messages for selected conversation
+  const fetchMessages = async (conversationId) => {
+    try {
+      const response = await axios.get(`${API}/conversations/${conversationId}/messages`);
+      setMessages(response.data);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      toast.error("Error cargando mensajes");
+    }
+  };
+
+  // Send message to selected conversation
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
+
+    setSendingMessage(true);
+    try {
+      const response = await axios.post(`${API}/conversations/${selectedConversation.id}/send-message`, {
+        message: newMessage.trim()
+      });
+
+      if (response.data.success) {
+        // Add message to local state immediately
+        const newMsg = {
+          id: Date.now(),
+          message: newMessage.trim(),
+          sender: 'clinic',
+          timestamp: new Date().toISOString(),
+          status: 'sent'
+        };
+        setMessages(prev => [...prev, newMsg]);
+        setNewMessage('');
+        toast.success("Mensaje enviado correctamente");
+        
+        // Refresh conversations to update last message
+        fetchConversations();
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Error enviando mensaje");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Format time for display
   const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
   };
 
-  // Format treatment status
-  const getStatusColor = (status) => {
+  // Get urgency color
+  const getUrgencyColor = (color) => {
     const colors = {
-      'scheduled': 'text-blue-600',
-      'confirmed': 'text-green-600',
-      'cancelled': 'text-red-600',
-      'completed': 'text-gray-600'
+      red: "bg-red-100 border-red-300 text-red-800",
+      black: "bg-gray-800 border-gray-600 text-white",
+      yellow: "bg-yellow-100 border-yellow-300 text-yellow-800",
+      gray: "bg-gray-100 border-gray-300 text-gray-800",
+      green: "bg-green-100 border-green-300 text-green-800"
     };
-    return colors[status] || 'text-gray-600';
+    return colors[color] || colors.gray;
   };
 
-  const getStatusText = (status) => {
-    const texts = {
-      'scheduled': 'Programada',
-      'confirmed': 'Confirmada',
-      'cancelled': 'Cancelada',
-      'completed': 'Completada'
+  const getUrgencyLabel = (color) => {
+    const labels = {
+      red: "URGENTE",
+      black: "ALTA",
+      yellow: "MEDIA", 
+      gray: "NORMAL",
+      green: "RESUELTA"
     };
-    return texts[status] || status;
+    return labels[color] || "NORMAL";
   };
 
   useEffect(() => {
-    fetchContacts();
+    fetchConversations();
+    // Refresh conversations every 30 seconds
+    const interval = setInterval(fetchConversations, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (selectedContact) {
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.id);
+      // Refresh messages every 10 seconds when a conversation is selected
+      const messageInterval = setInterval(() => fetchMessages(selectedConversation.id), 10000);
+      return () => clearInterval(messageInterval);
+    }
+  }, [selectedConversation]);
+
+  return (
+    <div className="h-screen flex bg-gray-50">
+      {/* Conversations List */}
+      <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 bg-green-600 text-white">
+          <h2 className="text-xl font-semibold flex items-center">
+            <MessageCircle className="w-6 h-6 mr-2" />
+            Conversaciones WhatsApp
+          </h2>
+          <p className="text-green-100 text-sm">{conversations.length} conversaciones</p>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-sm">No hay conversaciones disponibles</p>
+              <p className="text-xs mt-1">Las conversaciones aparecerán cuando los pacientes envíen mensajes</p>
+            </div>
+          ) : (
+            conversations.map((conversation) => (
+              <div
+                key={conversation.id}
+                onClick={() => setSelectedConversation(conversation)}
+                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  selectedConversation?.id === conversation.id ? 'bg-green-50 border-l-4 border-l-green-600' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-medium text-gray-900">{conversation.patient_name}</h3>
+                    <span className={`px-2 py-1 text-xs rounded-full border ${getUrgencyColor(conversation.urgency_color)}`}>
+                      {getUrgencyLabel(conversation.urgency_color)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">{formatTime(conversation.last_message_time)}</span>
+                </div>
+                
+                <p className="text-sm text-gray-600 truncate mb-1">{conversation.last_message}</p>
+                
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{conversation.patient_phone}</span>
+                  <div className="flex items-center space-x-2">
+                    <span>{conversation.message_count} mensajes</span>
+                    {conversation.pending_response && (
+                      <span className="flex items-center text-orange-600">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Message Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedConversation ? (
+          <>
+            {/* Message Header */}
+            <div className="p-4 bg-white border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900">{selectedConversation.patient_name}</h3>
+                  <p className="text-sm text-gray-600">{selectedConversation.patient_phone}</p>
+                </div>
+                <span className={`px-3 py-1 text-sm rounded-full border ${getUrgencyColor(selectedConversation.urgency_color)}`}>
+                  {getUrgencyLabel(selectedConversation.urgency_color)}
+                </span>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No hay mensajes en esta conversación</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === 'clinic' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender === 'clinic'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm">{message.message}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender === 'clinic' ? 'text-green-100' : 'text-gray-500'
+                      }`}>
+                        {formatTime(message.timestamp)}
+                        {message.sender === 'clinic' && (
+                          <span className="ml-2">
+                            {message.status === 'sent' ? '✓' : '⏳'}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 bg-white border-t border-gray-200">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Escriba su mensaje..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  disabled={sendingMessage}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!newMessage.trim() || sendingMessage}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {sendingMessage ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center text-gray-500">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">Selecciona una conversación</h3>
+              <p className="text-sm">Elige una conversación de la lista para ver y enviar mensajes</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
       fetchPatientHistory(selectedContact.id);
     }
   }, [selectedContact]);
