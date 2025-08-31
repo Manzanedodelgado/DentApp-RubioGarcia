@@ -3970,6 +3970,417 @@ class OmniDeskAPITester:
             print("❌ AI-POWERED AUTOMATION SYSTEM: ISSUES DETECTED")
             return False
 
+    def test_daily_whatsapp_summary_system(self):
+        """Test the new Daily WhatsApp Summary System with qualitative format"""
+        print("\n" + "="*70)
+        print("🎯 TESTING DAILY WHATSAPP SUMMARY SYSTEM")
+        print("="*70)
+        print("FOCUS: Qualitative summaries, pending messages, urgent detection, 9 PM scheduling")
+        
+        # Test 1: Get daily summary settings
+        print("\n📋 Step 1: Testing daily summary settings...")
+        success, settings = self.run_test(
+            "Get Daily Summary Settings",
+            "GET",
+            "daily-summary/settings",
+            200
+        )
+        
+        if success:
+            print(f"   ✅ Settings retrieved successfully")
+            print(f"   📞 Recipient phone: {settings.get('recipient_phone', 'Not set')}")
+            print(f"   🕘 Send time: {settings.get('send_time', 'Not set')}")
+            print(f"   📅 Workdays only: {settings.get('workdays_only', False)}")
+            print(f"   📎 Include attachments: {settings.get('include_attachments', False)}")
+            
+            # Check if 9 PM scheduling is configured (21:00)
+            send_time = settings.get('send_time', '')
+            if send_time in ['21:00', '9:00 PM', '21']:
+                print("   ✅ 9 PM scheduling confirmed")
+            else:
+                print(f"   ⚠️ Send time is {send_time}, expected 21:00 (9 PM)")
+        
+        # Test 2: Update daily summary settings to 9 PM
+        print("\n⚙️ Step 2: Testing daily summary settings update...")
+        new_settings = {
+            "enabled": True,
+            "recipient_phone": "648085696",
+            "send_time": "21:00",  # 9 PM as requested
+            "workdays_only": True,
+            "include_attachments": True,
+            "summary_template": "📊 RESUMEN DIARIO WHATSAPP - RUBIO GARCÍA DENTAL\n📅 {date}\n\n💬 CONVERSACIONES:\n• Total: {total_conversations}\n• Nuevas: {new_conversations}\n• Urgentes: {urgent_conversations}"
+        }
+        
+        success, update_response = self.run_test(
+            "Update Daily Summary Settings (9 PM)",
+            "PUT",
+            "daily-summary/settings",
+            200,
+            data=new_settings
+        )
+        
+        if success:
+            print("   ✅ Settings updated successfully with 9 PM scheduling")
+        
+        # Test 3: Test manual summary generation
+        print("\n📊 Step 3: Testing manual summary generation...")
+        success, summary_response = self.run_test(
+            "Send Daily Summary Now (Manual Test)",
+            "POST",
+            "daily-summary/send-now",
+            200
+        )
+        
+        if success:
+            print("   ✅ Manual summary generation working")
+            print(f"   📝 Response: {summary_response.get('message', 'No message')}")
+        
+        # Test 4: Get summary history
+        print("\n📚 Step 4: Testing summary history...")
+        success, history = self.run_test(
+            "Get Daily Summary History",
+            "GET",
+            "daily-summary/history",
+            200,
+            params={"limit": "10"}
+        )
+        
+        if success:
+            print(f"   ✅ Found {len(history)} summaries in history")
+            
+            # Check for qualitative format
+            if history:
+                latest_summary = history[0]
+                summary_text = latest_summary.get('summary_text', '')
+                
+                # Check for qualitative indicators
+                qualitative_indicators = [
+                    'INTERACCIONES POR PACIENTE',
+                    'MENSAJES PENDIENTES',
+                    'MENSAJES URGENTES',
+                    'pacientes atendidos',
+                    'Consulta:',
+                    'Resultado:'
+                ]
+                
+                found_indicators = [indicator for indicator in qualitative_indicators if indicator in summary_text]
+                
+                if len(found_indicators) >= 3:
+                    print("   ✅ QUALITATIVE FORMAT CONFIRMED: Summary contains patient details and consultations")
+                    print(f"   📋 Found indicators: {found_indicators[:3]}")
+                else:
+                    print("   ⚠️ Summary may still be using quantitative format")
+        
+        # Test 5: Test pending messages detection
+        print("\n⏳ Step 5: Testing pending messages detection...")
+        success, pending_conversations = self.run_test(
+            "Get Pending Conversations",
+            "GET",
+            "conversations/pending",
+            200
+        )
+        
+        if success:
+            print(f"   ✅ Found {len(pending_conversations)} pending conversations")
+            
+            # Check for urgent pending messages
+            urgent_pending = [conv for conv in pending_conversations if conv.get('color_code') in ['red', 'black']]
+            print(f"   🚨 Urgent pending messages: {len(urgent_pending)}")
+            
+            if urgent_pending:
+                print("   ✅ URGENT MESSAGE DETECTION: System can identify urgent pending messages")
+                for urgent in urgent_pending[:2]:  # Show first 2
+                    print(f"      - {urgent.get('patient_name', 'Unknown')}: {urgent.get('color_code', 'unknown')} priority")
+        
+        return True
+
+    def test_user_permissions_system(self):
+        """Test the new User Permissions System"""
+        print("\n" + "="*70)
+        print("🔐 TESTING USER PERMISSIONS SYSTEM")
+        print("="*70)
+        print("FOCUS: Default users, permissions, readonly login, permission verification")
+        
+        # Test 1: Get all users (should include default users)
+        print("\n👥 Step 1: Testing default users creation...")
+        success, users = self.run_test(
+            "Get All Users",
+            "GET",
+            "users",
+            200
+        )
+        
+        if success:
+            print(f"   ✅ Found {len(users)} users in system")
+            
+            # Check for expected default users
+            expected_users = ['admin', 'staff', 'viewer', 'readonly']
+            found_users = [user.get('username', '') for user in users]
+            
+            for expected_user in expected_users:
+                if expected_user in found_users:
+                    print(f"   ✅ Default user '{expected_user}' found")
+                else:
+                    print(f"   ❌ Default user '{expected_user}' missing")
+            
+            # Show user details
+            for user in users:
+                username = user.get('username', 'Unknown')
+                role = user.get('role', 'Unknown')
+                permissions_count = len(user.get('permissions', []))
+                print(f"   📋 {username} ({role}): {permissions_count} permissions")
+        
+        # Test 2: Get all permissions
+        print("\n🔑 Step 2: Testing permissions creation...")
+        success, permissions = self.run_test(
+            "Get All Permissions",
+            "GET",
+            "permissions",
+            200
+        )
+        
+        if success:
+            print(f"   ✅ Found {len(permissions)} permissions in system")
+            
+            # Check for expected permission categories
+            categories = {}
+            for perm in permissions:
+                category = perm.get('category', 'unknown')
+                categories[category] = categories.get(category, 0) + 1
+            
+            print(f"   📊 Permission categories:")
+            for category, count in categories.items():
+                print(f"      - {category}: {count} permissions")
+            
+            # Verify we have the expected categories
+            expected_categories = ['read', 'write', 'admin', 'special']
+            for expected_cat in expected_categories:
+                if expected_cat in categories:
+                    print(f"   ✅ Category '{expected_cat}' found with {categories[expected_cat]} permissions")
+                else:
+                    print(f"   ❌ Category '{expected_cat}' missing")
+            
+            # Check if we have 17+ permissions as expected
+            if len(permissions) >= 17:
+                print("   ✅ PERMISSIONS COUNT: 17+ permissions created as expected")
+            else:
+                print(f"   ⚠️ Only {len(permissions)} permissions found, expected 17+")
+        
+        # Test 3: Test readonly user login (no password required)
+        print("\n🔓 Step 3: Testing readonly user login...")
+        readonly_credentials = {
+            "username": "readonly"
+            # No password required for readonly users
+        }
+        
+        success, login_response = self.run_test(
+            "Readonly User Login (No Password)",
+            "POST",
+            "auth/login-readonly",
+            200,
+            data=readonly_credentials
+        )
+        
+        if success:
+            print("   ✅ READONLY LOGIN: Working without password")
+            token = login_response.get('token')
+            user_info = login_response.get('user', {})
+            
+            print(f"   🎫 Token received: {token[:20]}..." if token else "   ❌ No token received")
+            print(f"   👤 User: {user_info.get('full_name', 'Unknown')}")
+            print(f"   🏷️ Role: {user_info.get('role', 'Unknown')}")
+            print(f"   🔑 Permissions: {len(user_info.get('permissions', []))}")
+            
+            # Store token for permission verification test
+            readonly_token = token
+        else:
+            readonly_token = None
+        
+        # Test 4: Test permission verification system
+        print("\n✅ Step 4: Testing permission verification...")
+        if readonly_token:
+            # Test with a read permission (should work for readonly user)
+            success, perm_check = self.run_test(
+                "Verify Read Permission (Should Work)",
+                "GET",
+                "auth/verify-permissions",
+                200,
+                params={"token": readonly_token, "required_permission": "read_conversations"}
+            )
+            
+            if success:
+                has_permission = perm_check.get('has_permission', False)
+                user_role = perm_check.get('user_role', 'Unknown')
+                
+                if has_permission:
+                    print("   ✅ PERMISSION VERIFICATION: Read permission correctly granted")
+                else:
+                    print("   ❌ Read permission denied for readonly user")
+                
+                print(f"   👤 Verified user role: {user_role}")
+            
+            # Test with a write permission (should fail for readonly user)
+            success, perm_check2 = self.run_test(
+                "Verify Write Permission (Should Fail)",
+                "GET",
+                "auth/verify-permissions",
+                200,
+                params={"token": readonly_token, "required_permission": "write_appointments"}
+            )
+            
+            if success:
+                has_permission = perm_check2.get('has_permission', False)
+                
+                if not has_permission:
+                    print("   ✅ PERMISSION VERIFICATION: Write permission correctly denied")
+                else:
+                    print("   ❌ Write permission incorrectly granted to readonly user")
+        
+        # Test 5: Test user management routes
+        print("\n👥 Step 5: Testing user management routes...")
+        
+        # Test creating a new user
+        new_user_data = {
+            "username": "test_user",
+            "email": "test@rubiogarciadental.com",
+            "full_name": "Test User",
+            "role": "staff",
+            "permissions": ["read_conversations", "read_appointments"],
+            "is_active": True
+        }
+        
+        success, create_response = self.run_test(
+            "Create New User",
+            "POST",
+            "users",
+            200,
+            data=new_user_data
+        )
+        
+        if success:
+            print("   ✅ USER CREATION: New user created successfully")
+            user_id = create_response.get('user_id')
+            
+            # Test updating the user
+            if user_id:
+                update_data = {
+                    "full_name": "Updated Test User",
+                    "is_active": False
+                }
+                
+                success, update_response = self.run_test(
+                    "Update User",
+                    "PUT",
+                    f"users/{user_id}",
+                    200,
+                    data=update_data
+                )
+                
+                if success:
+                    print("   ✅ USER UPDATE: User updated successfully")
+        
+        return True
+
+    def test_integration_features(self):
+        """Test integration between daily summaries and user permissions"""
+        print("\n" + "="*70)
+        print("🔗 TESTING INTEGRATION FEATURES")
+        print("="*70)
+        print("FOCUS: Permission-based access, session management, summary access control")
+        
+        # Test 1: Test that different user roles can access appropriate summary data
+        print("\n🔐 Step 1: Testing permission-based summary access...")
+        
+        # Try to access summary history without authentication (should work for now, but could be restricted)
+        success, public_history = self.run_test(
+            "Access Summary History (Public)",
+            "GET",
+            "daily-summary/history",
+            200,
+            params={"limit": "5"}
+        )
+        
+        if success:
+            print(f"   📊 Summary history accessible: {len(public_history)} summaries")
+        
+        # Test 2: Test session management for different user types
+        print("\n🎫 Step 2: Testing session management...")
+        
+        # Login as different user types and check session creation
+        user_types = [
+            {"username": "admin", "expected_role": "admin"},
+            {"username": "staff", "expected_role": "staff"},
+            {"username": "viewer", "expected_role": "viewer"},
+            {"username": "readonly", "expected_role": "readonly"}
+        ]
+        
+        active_sessions = []
+        
+        for user_type in user_types:
+            success, login_response = self.run_test(
+                f"Login as {user_type['username']}",
+                "POST",
+                "auth/login-readonly",
+                200,
+                data={"username": user_type["username"]}
+            )
+            
+            if success:
+                token = login_response.get('token')
+                user_info = login_response.get('user', {})
+                role = user_info.get('role', '')
+                
+                if role == user_type['expected_role']:
+                    print(f"   ✅ {user_type['username']}: Session created successfully")
+                    active_sessions.append({
+                        "username": user_type['username'],
+                        "token": token,
+                        "role": role
+                    })
+                else:
+                    print(f"   ❌ {user_type['username']}: Role mismatch - expected {user_type['expected_role']}, got {role}")
+        
+        print(f"   📊 Active sessions created: {len(active_sessions)}")
+        
+        # Test 3: Test that qualitative summary format includes patient details
+        print("\n📋 Step 3: Testing qualitative summary format...")
+        
+        success, recent_summaries = self.run_test(
+            "Get Recent Summaries for Format Check",
+            "GET",
+            "daily-summary/history",
+            200,
+            params={"limit": "3"}
+        )
+        
+        if success and recent_summaries:
+            latest_summary = recent_summaries[0]
+            summary_text = latest_summary.get('summary_text', '')
+            
+            # Check for qualitative format indicators
+            qualitative_features = {
+                "patient_names": "👥 INTERACCIONES POR PACIENTE" in summary_text,
+                "consultations": "📝 Consulta:" in summary_text,
+                "results": "📋 Resultado:" in summary_text,
+                "pending_messages": "⏳ MENSAJES PENDIENTES" in summary_text,
+                "urgent_messages": "🚨 MENSAJES URGENTES" in summary_text,
+                "detailed_format": len(summary_text) > 200  # Qualitative summaries should be longer
+            }
+            
+            print("   📊 Qualitative format features:")
+            for feature, present in qualitative_features.items():
+                status = "✅" if present else "❌"
+                print(f"      {status} {feature.replace('_', ' ').title()}: {present}")
+            
+            # Overall qualitative format score
+            qualitative_score = sum(qualitative_features.values()) / len(qualitative_features)
+            if qualitative_score >= 0.7:
+                print("   ✅ QUALITATIVE FORMAT: Summary format is properly qualitative")
+            else:
+                print("   ⚠️ Summary may still be using quantitative format")
+        
+        return True
+
     def run_all_tests(self):
         """Run all API tests with focus on AI and Settings endpoints"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite - AI & Settings Focus")
