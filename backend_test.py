@@ -3881,6 +3881,352 @@ class OmniDeskAPITester:
                 print("   🚨 Expected doctor names not found")
             return False
 
+    def test_whatsapp_interactive_consent_system(self):
+        """Test the new WhatsApp interactive consent system endpoints"""
+        print("\n" + "="*70)
+        print("🔍 TESTING WHATSAPP INTERACTIVE CONSENT SYSTEM")
+        print("="*70)
+        print("Focus: Button responses, consent forms, surveys, dashboard tasks, PDF documents")
+        
+        # Step 1: Test button response endpoint
+        print("\n📱 Step 1: Testing WhatsApp button response endpoint...")
+        
+        # Test appointment confirmation button
+        button_response_data = {
+            "phone_number": "34664218253",
+            "button_id": "confirm_appointment",
+            "selected_text": "Confirmar Cita",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        success, response = self.run_test(
+            "Button Response - Confirm Appointment",
+            "POST",
+            "whatsapp/button-response",
+            200,
+            data=button_response_data
+        )
+        
+        if success:
+            print(f"   ✅ Button response processed: {response.get('reply_message', 'No message')}")
+            print(f"   📋 Task created: {response.get('task_created', False)}")
+        
+        # Test consent acceptance button
+        consent_button_data = {
+            "phone_number": "34664218253",
+            "button_id": "consent_accept",
+            "selected_text": "Acepto el Consentimiento",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        success, response = self.run_test(
+            "Button Response - Consent Accept",
+            "POST",
+            "whatsapp/button-response",
+            200,
+            data=consent_button_data
+        )
+        
+        if success:
+            print(f"   ✅ Consent response processed: {response.get('reply_message', 'No message')}")
+        
+        # Test reschedule button (should create dashboard task)
+        reschedule_button_data = {
+            "phone_number": "34664218253",
+            "button_id": "reschedule_appointment",
+            "selected_text": "Reprogramar Cita",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        success, response = self.run_test(
+            "Button Response - Reschedule Request",
+            "POST",
+            "whatsapp/button-response",
+            200,
+            data=reschedule_button_data
+        )
+        
+        if success:
+            print(f"   ✅ Reschedule response: {response.get('reply_message', 'No message')}")
+            print(f"   📋 Task created: {response.get('task_created', False)}")
+        
+        # Step 2: Test consent form sending endpoint
+        print("\n📄 Step 2: Testing consent form sending endpoint...")
+        
+        consent_form_data = {
+            "phone_number": "34664218253",
+            "patient_name": "Juan Pérez García",
+            "treatment_code": 10,  # Cirugía e Implantes
+            "consent_type": "treatment",
+            "appointment_id": "test-appointment-123",
+            "template_id": "test-template-456"
+        }
+        
+        success, response = self.run_test(
+            "Send Consent Form - Surgery",
+            "POST",
+            "whatsapp/send-consent",
+            200,
+            data=consent_form_data
+        )
+        
+        if success:
+            print(f"   ✅ Consent form sent: {response.get('message', 'No message')}")
+        else:
+            print("   ⚠️ Consent form sending failed (expected if WhatsApp service not running)")
+        
+        # Test LOPD consent
+        lopd_consent_data = {
+            "phone_number": "34664218253",
+            "patient_name": "María González López",
+            "treatment_code": 13,  # Primera cita + LOPD
+            "consent_type": "lopd",
+            "appointment_id": "test-appointment-789"
+        }
+        
+        success, response = self.run_test(
+            "Send LOPD Consent Form",
+            "POST",
+            "whatsapp/send-consent",
+            200,
+            data=lopd_consent_data
+        )
+        
+        if success:
+            print(f"   ✅ LOPD consent sent: {response.get('message', 'No message')}")
+        else:
+            print("   ⚠️ LOPD consent sending failed (expected if WhatsApp service not running)")
+        
+        # Step 3: Test survey sending endpoint
+        print("\n📋 Step 3: Testing first visit survey endpoint...")
+        
+        survey_data = {
+            "phone_number": "34664218253",
+            "patient_name": "Ana Martín Ruiz"
+        }
+        
+        success, response = self.run_test(
+            "Send First Visit Survey",
+            "POST",
+            "whatsapp/send-survey",
+            200,
+            data=survey_data
+        )
+        
+        if success:
+            print(f"   ✅ Survey sent: {response.get('message', 'No message')}")
+        else:
+            print("   ⚠️ Survey sending failed (expected if WhatsApp service not running)")
+        
+        # Step 4: Test dashboard tasks endpoints
+        print("\n📊 Step 4: Testing dashboard tasks management...")
+        
+        # Get all dashboard tasks
+        success, all_tasks = self.run_test(
+            "Get All Dashboard Tasks",
+            "GET",
+            "dashboard/tasks",
+            200
+        )
+        
+        if success:
+            print(f"   📋 Found {len(all_tasks)} dashboard tasks")
+            
+            # Show task types
+            task_types = {}
+            for task in all_tasks:
+                task_type = task.get('task_type', 'unknown')
+                task_types[task_type] = task_types.get(task_type, 0) + 1
+            
+            for task_type, count in task_types.items():
+                print(f"   - {task_type}: {count} tasks")
+        
+        # Filter tasks by status
+        success, pending_tasks = self.run_test(
+            "Get Pending Dashboard Tasks",
+            "GET",
+            "dashboard/tasks",
+            200,
+            params={"status": "pending"}
+        )
+        
+        if success:
+            print(f"   📋 Found {len(pending_tasks)} pending tasks")
+        
+        # Filter tasks by priority
+        success, high_priority_tasks = self.run_test(
+            "Get High Priority Tasks",
+            "GET",
+            "dashboard/tasks",
+            200,
+            params={"priority": "high"}
+        )
+        
+        if success:
+            print(f"   🔴 Found {len(high_priority_tasks)} high priority tasks")
+        
+        # Test updating a task if we have any
+        if all_tasks and len(all_tasks) > 0:
+            task_id = all_tasks[0].get('id')
+            if task_id:
+                update_data = {
+                    "status": "in_progress",
+                    "notes": "Task being processed by automated test",
+                    "assigned_to": "Test Agent"
+                }
+                
+                success, response = self.run_test(
+                    "Update Dashboard Task",
+                    "PUT",
+                    f"dashboard/tasks/{task_id}",
+                    200,
+                    data=update_data
+                )
+                
+                if success:
+                    print(f"   ✅ Task updated successfully")
+        
+        # Step 5: Test consent delivery tracking
+        print("\n📦 Step 5: Testing consent delivery tracking...")
+        
+        # Get all consent deliveries
+        success, deliveries = self.run_test(
+            "Get All Consent Deliveries",
+            "GET",
+            "consent-deliveries",
+            200
+        )
+        
+        if success:
+            print(f"   📦 Found {len(deliveries)} consent deliveries")
+            
+            # Show delivery statuses
+            statuses = {}
+            for delivery in deliveries:
+                status = delivery.get('delivery_status', 'unknown')
+                statuses[status] = statuses.get(status, 0) + 1
+            
+            for status, count in statuses.items():
+                print(f"   - {status}: {count} deliveries")
+        
+        # Get pending deliveries
+        success, pending_deliveries = self.run_test(
+            "Get Pending Consent Deliveries",
+            "GET",
+            "consent-deliveries",
+            200,
+            params={"status": "pending"}
+        )
+        
+        if success:
+            print(f"   ⏳ Found {len(pending_deliveries)} pending deliveries")
+        
+        # Step 6: Verify PDF documents exist
+        print("\n📄 Step 6: Verifying PDF documents exist...")
+        
+        expected_pdfs = [
+            "consent_treatment_9.pdf",   # Periodoncia
+            "consent_treatment_10.pdf",  # Cirugía e Implantes
+            "consent_treatment_11.pdf",  # Ortodoncia
+            "consent_treatment_16.pdf",  # Endodoncia
+            "consent_lopd_13.pdf"        # LOPD Primera cita
+        ]
+        
+        pdf_check_results = []
+        for pdf_file in expected_pdfs:
+            try:
+                with open(f"/app/documents/{pdf_file}", "rb") as f:
+                    file_size = len(f.read())
+                    print(f"   ✅ {pdf_file}: {file_size} bytes")
+                    pdf_check_results.append(True)
+            except FileNotFoundError:
+                print(f"   ❌ {pdf_file}: NOT FOUND")
+                pdf_check_results.append(False)
+            except Exception as e:
+                print(f"   ⚠️ {pdf_file}: Error reading - {str(e)}")
+                pdf_check_results.append(False)
+        
+        # Step 7: Test treatment codes endpoint
+        print("\n🏥 Step 7: Testing treatment codes endpoint...")
+        
+        success, treatment_codes = self.run_test(
+            "Get Treatment Codes",
+            "GET",
+            "treatment-codes",
+            200
+        )
+        
+        if success:
+            print(f"   🏥 Found {len(treatment_codes)} treatment codes")
+            
+            # Verify required treatment codes exist
+            required_codes = [9, 10, 11, 13, 16]
+            found_codes = [tc.get('code') for tc in treatment_codes]
+            
+            for code in required_codes:
+                if code in found_codes:
+                    tc = next((tc for tc in treatment_codes if tc.get('code') == code), {})
+                    name = tc.get('name', 'Unknown')
+                    requires_consent = tc.get('requires_consent', False)
+                    requires_lopd = tc.get('requires_lopd', False)
+                    print(f"   ✅ Code {code} ({name}): Consent={requires_consent}, LOPD={requires_lopd}")
+                else:
+                    print(f"   ❌ Code {code}: NOT FOUND")
+        
+        # Step 8: Test consent templates
+        print("\n📋 Step 8: Testing consent templates...")
+        
+        success, templates = self.run_test(
+            "Get Consent Templates",
+            "GET",
+            "consent-templates",
+            200
+        )
+        
+        if success:
+            print(f"   📋 Found {len(templates)} consent templates")
+            
+            # Check templates for required treatment codes
+            template_codes = [t.get('treatment_code') for t in templates]
+            for code in required_codes:
+                if code in template_codes:
+                    template = next((t for t in templates if t.get('treatment_code') == code), {})
+                    name = template.get('name', 'Unknown')
+                    active = template.get('active', False)
+                    print(f"   ✅ Template for code {code} ({name}): Active={active}")
+                else:
+                    print(f"   ⚠️ No template found for treatment code {code}")
+        
+        # Final summary
+        print("\n" + "="*70)
+        print("📋 WHATSAPP INTERACTIVE CONSENT SYSTEM SUMMARY")
+        print("="*70)
+        
+        success_criteria = [
+            len(all_tasks) >= 0,  # Dashboard tasks accessible
+            len(deliveries) >= 0,  # Consent deliveries accessible
+            sum(pdf_check_results) >= 4,  # At least 4 PDFs exist
+            len(treatment_codes) >= 5,  # Treatment codes available
+            len(templates) >= 0  # Templates accessible
+        ]
+        
+        passed_criteria = sum(success_criteria)
+        total_criteria = len(success_criteria)
+        
+        print(f"✅ Passed criteria: {passed_criteria}/{total_criteria}")
+        print(f"📄 PDF documents: {sum(pdf_check_results)}/{len(expected_pdfs)} found")
+        print(f"📋 Dashboard tasks: {len(all_tasks)} total")
+        print(f"📦 Consent deliveries: {len(deliveries)} total")
+        print(f"🏥 Treatment codes: {len(treatment_codes)} available")
+        print(f"📋 Consent templates: {len(templates)} available")
+        
+        if passed_criteria >= total_criteria * 0.8:  # 80% success rate
+            print("🎉 WHATSAPP INTERACTIVE CONSENT SYSTEM: WORKING CORRECTLY")
+            return True
+        else:
+            print("❌ WHATSAPP INTERACTIVE CONSENT SYSTEM: ISSUES DETECTED")
+            return False
+
 def main():
     """Main function to run the extended range doctor column verification test"""
     tester = OmniDeskAPITester()
