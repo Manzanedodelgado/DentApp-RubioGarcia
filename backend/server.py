@@ -3413,6 +3413,339 @@ class DailySummarySettings(BaseModel):
 
 📈 RESUMEN:
 {summary_text}"""
+# Daily WhatsApp Summary Generation
+async def generate_daily_whatsapp_summary(target_date=None):
+    """Generate comprehensive daily WhatsApp summary"""
+    try:
+        if target_date is None:
+            target_date = datetime.now(timezone.utc).date()
+        
+        # Date range for the day
+        start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        end_date = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
+        logging.info(f"Generating WhatsApp summary for {target_date}")
+        
+        # Initialize summary data
+        summary_data = {
+            "date": target_date.strftime("%d/%m/%Y"),
+            "total_conversations": 0,
+            "new_conversations": 0,
+            "urgent_conversations": 0,
+            "appointments_confirmed": 0,
+            "appointments_cancelled": 0,
+            "consents_sent": 0,
+            "consents_accepted": 0,
+            "surveys_completed": 0,
+            "ai_automations_triggered": 0,
+            "patient_satisfaction": "N/A",
+            "top_concerns": [],
+            "summary_text": ""
+        }
+        
+        # Get conversation data for the day
+        conversations = await db.conversation_status.find({
+            "timestamp": {"$gte": start_date, "$lte": end_date}
+        }).to_list(1000)
+        
+        summary_data["total_conversations"] = len(conversations)
+        
+        # Count new conversations
+        summary_data["new_conversations"] = len([c for c in conversations if c.get("status_description") == "Nueva conversación"])
+        
+        # Count urgent conversations (red and black urgency)
+        urgent_colors = ["red", "black"]
+        urgent_conversations = [c for c in conversations if c.get("urgency_color") in urgent_colors]
+        summary_data["urgent_conversations"] = len(urgent_conversations)
+        
+        # Get button responses for appointments
+        button_responses = await db.button_responses.find({
+            "timestamp": {"$gte": start_date, "$lte": end_date}
+        }).to_list(1000)
+        
+        for response in button_responses:
+            button_id = response.get("button_id", "")
+            if button_id == "confirm_appointment":
+                summary_data["appointments_confirmed"] += 1
+            elif button_id == "cancel_appointment":
+                summary_data["appointments_cancelled"] += 1
+        
+        # Get consent deliveries
+        consent_deliveries = await db.consent_deliveries.find({
+            "sent_at": {"$gte": start_date, "$lte": end_date}
+        }).to_list(1000)
+        summary_data["consents_sent"] = len(consent_deliveries)
+        
+        # Get consent responses
+        consent_responses = await db.consent_responses.find({
+            "timestamp": {"$gte": start_date, "$lte": end_date}
+        }).to_list(1000)
+        
+        accepted_consents = [r for r in consent_responses if r.get("response") == "accepted"]
+        summary_data["consents_accepted"] = len(accepted_consents)
+        
+        # Get automation executions
+        automation_executions = await db.automation_executions.find({
+            "started_at": {"$gte": start_date, "$lte": end_date},
+            "execution_status": "completed"
+        }).to_list(1000)
+        summary_data["ai_automations_triggered"] = len(automation_executions)
+        
+        # Analyze top concerns from messages
+        messages = await db.messages.find({
+            "timestamp": {"$gte": start_date, "$lte": end_date}
+        }).to_list(1000)
+        
+        concern_keywords = {
+            "dolor": 0,
+            "urgencia": 0,
+            "cita": 0,
+            "cancelar": 0,
+            "precio": 0,
+            "seguro": 0,
+            "horario": 0
+        }
+        
+        for message in messages:
+            content = message.get("content", "").lower()
+            for keyword in concern_keywords.keys():
+                if keyword in content:
+                    concern_keywords[keyword] += 1
+        
+        # Get top 3 concerns
+        top_concerns = sorted(concern_keywords.items(), key=lambda x: x[1], reverse=True)[:3]
+        summary_data["top_concerns"] = [f"• {concern.capitalize()}: {count}" for concern, count in top_concerns if count > 0]
+        
+        if not summary_data["top_concerns"]:
+            summary_data["top_concerns"] = ["• Sin temas destacados"]
+        
+        # Calculate satisfaction score (simplified)
+        if conversations:
+            positive_indicators = len([c for c in conversations if c.get("urgency_color") == "green"])
+            satisfaction_score = (positive_indicators / len(conversations)) * 100
+            summary_data["patient_satisfaction"] = f"{satisfaction_score:.1f}%"
+        
+        # Generate AI summary text
+        summary_context = f"""
+        Día: {target_date.strftime('%A %d de %B %Y')}
+        Total conversaciones: {summary_data['total_conversations']}
+        Urgencias: {summary_data['urgent_conversations']}
+        Citas confirmadas: {summary_data['appointments_confirmed']}
+        Consentimientos: {summary_data['consents_sent']} enviados, {summary_data['consents_accepted']} aceptados
+        Automatizaciones IA: {summary_data['ai_automations_triggered']}
+        """
+        
+        try:
+            # Use Emergent LLM for summary generation
+            ai_settings = await db.ai_settings.find_one({})
+            if ai_settings:
+                from emergentintegrations import LLMManager
+                llm = LLMManager()
+                
+                summary_prompt = f"""Eres el asistente de la clínica RUBIO GARCÍA DENTAL. 
+                Genera un resumen ejecutivo breve (máximo 2 líneas) sobre la actividad de WhatsApp del día:
+                
+                {summary_context}
+                
+                Enfócate en aspectos destacados, tendencias importantes o alertas que requieran atención."""
+                
+                ai_response = await llm.generate_text(
+                    prompt=summary_prompt,
+                    model="gpt-4o-mini",
+                    temperature=0.3,
+                    max_tokens=150
+                )
+                
+                summary_data["summary_text"] = ai_response.strip()
+            else:
+                summary_data["summary_text"] = f"Día {'activo' if summary_data['total_conversations'] > 10 else 'tranquilo'} con {summary_data['total_conversations']} conversaciones. {'⚠️ Varias urgencias detectadas.' if summary_data['urgent_conversations'] > 3 else '✅ Actividad normal.'}"
+                
+        except Exception as e:
+            logging.error(f"Error generating AI summary: {str(e)}")
+            summary_data["summary_text"] = f"Actividad {'alta' if summary_data['total_conversations'] > 10 else 'normal'} con {summary_data['total_conversations']} conversaciones procesadas."
+        
+        # Save summary to database
+        whatsapp_summary = WhatsAppSummary(
+            date=start_date,
+            total_conversations=summary_data["total_conversations"],
+            new_conversations=summary_data["new_conversations"],
+            urgent_conversations=summary_data["urgent_conversations"],
+            appointments_confirmed=summary_data["appointments_confirmed"],
+            appointments_cancelled=summary_data["appointments_cancelled"],
+            consents_sent=summary_data["consents_sent"],
+            consents_accepted=summary_data["consents_accepted"],
+            ai_automations_triggered=summary_data["ai_automations_triggered"],
+            top_concerns=summary_data["top_concerns"],
+            summary_text=summary_data["summary_text"]
+        )
+        
+        await db.whatsapp_summaries.insert_one(prepare_for_mongo(whatsapp_summary.dict()))
+        
+        return summary_data
+        
+    except Exception as e:
+        logging.error(f"Error generating WhatsApp summary: {str(e)}")
+        return None
+
+async def send_daily_whatsapp_summary():
+    """Send daily WhatsApp summary to configured recipient"""
+    try:
+        logging.info("Starting daily WhatsApp summary generation and sending")
+        
+        # Check if today is a workday
+        today = datetime.now(timezone.utc)
+        if today.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            logging.info("Today is weekend, skipping summary (workdays only)")
+            return False
+        
+        # Get summary settings
+        settings = await db.daily_summary_settings.find_one({})
+        if not settings or not settings.get("enabled", True):
+            logging.info("Daily summary is disabled")
+            return False
+        
+        # Generate summary for yesterday (since this runs at end of business day)
+        yesterday = (today - timedelta(days=1)).date()
+        summary_data = await generate_daily_whatsapp_summary(yesterday)
+        
+        if not summary_data:
+            logging.error("Failed to generate summary data")
+            return False
+        
+        # Format message using template
+        template = settings.get("summary_template", "")
+        if not template:
+            # Use default template
+            template = """📊 RESUMEN DIARIO WHATSAPP - RUBIO GARCÍA DENTAL
+📅 {date}
+
+💬 CONVERSACIONES:
+• Total: {total_conversations}
+• Nuevas: {new_conversations} 
+• Urgentes: {urgent_conversations}
+
+📅 CITAS:
+• Confirmadas: {appointments_confirmed}
+• Canceladas: {appointments_cancelled}
+
+📋 CONSENTIMIENTOS:
+• Enviados: {consents_sent}
+• Aceptados: {consents_accepted}
+
+🤖 IA:
+• Automatizaciones: {ai_automations_triggered}
+• Satisfacción: {patient_satisfaction}
+
+🔥 TEMAS PRINCIPALES:
+{top_concerns}
+
+📈 RESUMEN:
+{summary_text}"""
+        
+        # Format the message
+        formatted_message = template.format(
+            date=summary_data["date"],
+            total_conversations=summary_data["total_conversations"],
+            new_conversations=summary_data["new_conversations"],
+            urgent_conversations=summary_data["urgent_conversations"],
+            appointments_confirmed=summary_data["appointments_confirmed"],
+            appointments_cancelled=summary_data["appointments_cancelled"],
+            consents_sent=summary_data["consents_sent"],
+            consents_accepted=summary_data["consents_accepted"],
+            ai_automations_triggered=summary_data["ai_automations_triggered"],
+            patient_satisfaction=summary_data["patient_satisfaction"],
+            top_concerns="\n".join(summary_data["top_concerns"]),
+            summary_text=summary_data["summary_text"]
+        )
+        
+        # Send via WhatsApp service
+        recipient_phone = settings.get("recipient_phone", "648085696")
+        
+        whatsapp_url = "http://localhost:3001"
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{whatsapp_url}/send-message", json={
+                "phone_number": recipient_phone,
+                "message": formatted_message
+            }, timeout=30)
+            
+        if response.status_code == 200:
+            logging.info(f"✅ Daily summary sent successfully to {recipient_phone}")
+            
+            # Update summary record
+            await db.whatsapp_summaries.update_one(
+                {"date": datetime.combine(yesterday, datetime.min.time()).replace(tzinfo=timezone.utc)},
+                {"$set": {"sent_at": datetime.now(timezone.utc), "sent_to": recipient_phone}}
+            )
+            
+            return True
+        else:
+            logging.error(f"❌ Failed to send daily summary: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Error sending daily WhatsApp summary: {str(e)}")
+        return False
+
+# Daily Summary Routes
+@api_router.get("/daily-summary/settings")
+async def get_daily_summary_settings():
+    """Get daily summary settings"""
+    try:
+        settings = await db.daily_summary_settings.find_one({})
+        if not settings:
+            # Create default settings
+            default_settings = DailySummarySettings()
+            await db.daily_summary_settings.insert_one(prepare_for_mongo(default_settings.dict()))
+            return default_settings
+        
+        return DailySummarySettings(**parse_from_mongo(settings))
+        
+    except Exception as e:
+        logging.error(f"Error fetching daily summary settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching settings")
+
+@api_router.put("/daily-summary/settings")
+async def update_daily_summary_settings(settings: DailySummarySettings):
+    """Update daily summary settings"""
+    try:
+        await db.daily_summary_settings.replace_one(
+            {},
+            prepare_for_mongo(settings.dict()),
+            upsert=True
+        )
+        
+        return {"message": "Settings updated successfully"}
+        
+    except Exception as e:
+        logging.error(f"Error updating daily summary settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating settings")
+
+@api_router.post("/daily-summary/send-now")
+async def send_summary_now():
+    """Send daily summary immediately (for testing)"""
+    try:
+        result = await send_daily_whatsapp_summary()
+        if result:
+            return {"message": "Summary sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send summary")
+            
+    except Exception as e:
+        logging.error(f"Error sending summary now: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending summary")
+
+@api_router.get("/daily-summary/history")
+async def get_daily_summary_history(limit: int = 30):
+    """Get history of daily summaries"""
+    try:
+        summaries = await db.whatsapp_summaries.find({}).sort("date", -1).limit(limit).to_list(limit)
+        return [WhatsAppSummary(**parse_from_mongo(summary)) for summary in summaries]
+        
+    except Exception as e:
+        logging.error(f"Error fetching summary history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching history")
+
+# Dashboard Tasks Routes
 @api_router.get("/dashboard/tasks")
 async def get_dashboard_tasks(status: Optional[str] = None, priority: Optional[str] = None):
     """Get dashboard tasks for staff follow-up"""
