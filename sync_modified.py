@@ -15,9 +15,10 @@ GOOGLE_SHEET_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ'  # Tu Google Sh
 SERVICE_ACCOUNT_FILE = 'service-account-key.json'  # Archivo JSON de Service Account
 GOOGLE_API_KEY = 'AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A'  # Tu API key actual
 
-# App SaaS configuración - CONFIGURAR CON TU URL REAL
-SAAS_APP_URL = 'http://localhost:8001/api/gesden/appointments/receive'  # Para testing local
-SAAS_API_KEY = None  # No necesitamos autenticación por ahora
+# App SaaS configuración - TEMPORALMENTE DESHABILITADO
+SAAS_APP_URL = 'http://localhost:8001/api/gesden/appointments/receive'  # Para cuando esté listo
+SAAS_API_KEY = None
+ENABLE_SAAS = False  # Cambiar a True cuando el SaaS esté funcionando
 
 # --- Logger ---
 def log_message(message):
