@@ -2899,7 +2899,173 @@ async def voice_assistant(request: VoiceAssistantRequest):
         logger.error(f"Error in voice assistant: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing voice request")
 
-# Google Sheets Sync Routes
+# Auto-Sync System Routes for GABINETE2
+@api_router.post("/sync/check-updates")
+async def check_file_updates(request_data: dict):
+    """Check if local files need updates compared to development versions"""
+    try:
+        client_id = request_data.get("client_id", "unknown")
+        local_hashes = request_data.get("local_hashes", {})
+        
+        logging.info(f"Update check request from {client_id}")
+        
+        # Current file versions in development environment
+        current_files = {
+            "sync_modified.py": {
+                "content": open("/app/sync_modified.py", "r", encoding="utf-8").read(),
+                "version": datetime.now(timezone.utc).strftime("%Y.%m.%d.1")
+            },
+            "requirements_sync.txt": {
+                "content": open("/app/requirements_sync.txt", "r", encoding="utf-8").read(),
+                "version": datetime.now(timezone.utc).strftime("%Y.%m.%d.1")
+            },
+            "service-account-key.json": {
+                "content": open("/app/service-account-key.json", "r", encoding="utf-8").read(),
+                "version": datetime.now(timezone.utc).strftime("%Y.%m.%d.1")
+            }
+        }
+        
+        files_to_update = []
+        
+        # Compare hashes to determine which files need updates
+        for filename, file_info in current_files.items():
+            current_content = file_info["content"]
+            current_hash = hashlib.md5(current_content.encode("utf-8")).hexdigest()
+            local_hash = local_hashes.get(filename)
+            
+            if local_hash != current_hash:
+                files_to_update.append(filename)
+                logging.info(f"File {filename} needs update (local: {local_hash}, current: {current_hash})")
+        
+        updates_available = len(files_to_update) > 0
+        
+        return {
+            "updates_available": updates_available,
+            "files_to_update": files_to_update,
+            "client_id": client_id,
+            "check_time": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error checking file updates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error checking updates")
+
+@api_router.post("/sync/download-files")
+async def download_sync_file(request_data: dict):
+    """Download specific file for synchronization"""
+    try:
+        filename = request_data.get("filename")
+        client_id = request_data.get("client_id", "unknown")
+        
+        if not filename:
+            raise HTTPException(status_code=400, detail="Filename is required")
+        
+        logging.info(f"File download request from {client_id}: {filename}")
+        
+        # Security check - only allow specific files
+        allowed_files = [
+            "sync_modified.py",
+            "requirements_sync.txt", 
+            "service-account-key.json",
+            "SETUP_GOOGLE_SERVICE_ACCOUNT.md"
+        ]
+        
+        if filename not in allowed_files:
+            raise HTTPException(status_code=403, detail="File not allowed for download")
+        
+        file_path = f"/app/{filename}"
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Read file content
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Calculate hash for verification
+        content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+        
+        return {
+            "filename": filename,
+            "content": content,
+            "hash": content_hash,
+            "size": len(content),
+            "download_time": datetime.now(timezone.utc).isoformat(),
+            "client_id": client_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error downloading file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error downloading file")
+
+@api_router.post("/sync/confirm-update")
+async def confirm_file_update(request_data: dict):
+    """Confirm that files were updated successfully on client side"""
+    try:
+        client_id = request_data.get("client_id", "unknown")
+        updated_files = request_data.get("updated_files", [])
+        timestamp = request_data.get("timestamp")
+        
+        logging.info(f"Update confirmation from {client_id}: {updated_files}")
+        
+        # Log the successful update
+        update_log = {
+            "client_id": client_id,
+            "updated_files": updated_files,
+            "update_timestamp": timestamp,
+            "confirmed_at": datetime.now(timezone.utc).isoformat(),
+            "status": "success"
+        }
+        
+        # Store update log in database
+        await db.sync_update_logs.insert_one(update_log)
+        
+        return {
+            "status": "confirmed",
+            "message": f"Update confirmed for {len(updated_files)} files",
+            "updated_files": updated_files
+        }
+        
+    except Exception as e:
+        logging.error(f"Error confirming update: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error confirming update")
+
+@api_router.get("/sync/status")
+async def get_sync_status():
+    """Get synchronization status and logs"""
+    try:
+        # Get recent sync logs
+        recent_logs = await db.sync_update_logs.find({}).sort("confirmed_at", -1).limit(10).to_list(10)
+        
+        # Get file versions
+        file_versions = {}
+        files_to_check = ["sync_modified.py", "requirements_sync.txt", "service-account-key.json"]
+        
+        for filename in files_to_check:
+            file_path = f"/app/{filename}"
+            if os.path.exists(file_path):
+                stat = os.stat(file_path)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                
+                file_versions[filename] = {
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                    "hash": hashlib.md5(content.encode("utf-8")).hexdigest()[:8]  # Short hash
+                }
+        
+        return {
+            "status": "active",
+            "file_versions": file_versions,
+            "recent_syncs": recent_logs,
+            "last_check": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error getting sync status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting sync status")
 @api_router.put("/appointments/{appointment_id}")
 async def update_appointment(appointment_id: str, update_data: AppointmentUpdate):
     """Update appointment and sync to Google Sheets"""
