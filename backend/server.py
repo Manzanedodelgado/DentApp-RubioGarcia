@@ -1553,7 +1553,441 @@ async def update_consent_message_setting(setting_name: str, update_data: dict):
         logging.error(f"Error updating consent message setting: {str(e)}")
         raise HTTPException(status_code=500, detail="Error updating setting")
 
-# Consent Template Routes  
+# Create default AI-powered automations
+async def create_default_ai_automations():
+    """Create default AI-powered automation rules if they don't exist"""
+    
+    default_automations = [
+        {
+            "name": "Triaje Inteligente de Urgencias",
+            "description": "IA evalúa mensajes de pacientes para detectar urgencias dentales y priorizar atención",
+            "category": "triage",
+            "trigger_type": "event_based",
+            "trigger_config": {"event": "new_patient_message", "keywords": ["dolor", "urgencia", "emergency"]},
+            "conditions": [
+                {"type": "ai_analysis", "field": "message_content", "operator": "contains_urgency_indicators"}
+            ],
+            "actions": [
+                {"type": "create_priority_task", "priority": "high", "color": "red"},
+                {"type": "send_auto_response", "template": "urgency_acknowledgment"},
+                {"type": "notify_staff", "urgency_level": "high"}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Eres un triaje dental inteligente. Analiza el mensaje del paciente y determina el nivel de urgencia (1-5) basado en síntomas como dolor severo, traumatismo, infección, sangrado. Responde con urgencia_nivel y razonamiento.",
+                "parameters": {"temperature": 0.3, "max_tokens": 200}
+            },
+            "is_active": True,
+            "priority": 10,
+            "dependencies": [],
+            "conflicts_with": []
+        },
+        {
+            "name": "Seguimiento Post-Cirugía",
+            "description": "Seguimiento automático de pacientes después de cirugías con IA que personaliza el mensaje según el tipo de intervención",
+            "category": "follow_up",
+            "trigger_type": "time_based",
+            "trigger_config": {"delay_hours": 24, "trigger_after": "surgery_appointment"},
+            "conditions": [
+                {"type": "appointment_type", "field": "treatment_code", "operator": "in", "value": [10]}
+            ],
+            "actions": [
+                {"type": "send_personalized_message", "ai_personalized": True},
+                {"type": "create_follow_up_task", "delay_days": 3}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini", 
+                "prompt": "Eres un asistente de seguimiento post-cirugía dental. Basándote en el tipo de cirugía realizada, crea un mensaje personalizado de seguimiento que incluya: cuidados específicos, signos de alarma a vigilar, y próximos pasos. Sé empático y profesional.",
+                "parameters": {"temperature": 0.5, "max_tokens": 300}
+            },
+            "is_active": True,
+            "priority": 8,
+            "dependencies": [],
+            "conflicts_with": []
+        },
+        {
+            "name": "Recordatorios Inteligentes Pre-Cita",
+            "description": "IA personaliza recordatorios según historial del paciente y tipo de tratamiento",
+            "category": "appointment_management",
+            "trigger_type": "time_based", 
+            "trigger_config": {"delay_hours": -24, "trigger_before": "appointment"},
+            "conditions": [
+                {"type": "appointment_status", "field": "status", "operator": "equals", "value": "confirmed"}
+            ],
+            "actions": [
+                {"type": "send_ai_reminder", "personalized": True},
+                {"type": "include_prep_instructions", "treatment_specific": True}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Personaliza el recordatorio de cita considerando: historial del paciente, tipo de tratamiento, y preparación necesaria. Incluye instrucciones específicas y un tono apropiado según el nivel de ansiedad del paciente.",
+                "parameters": {"temperature": 0.6, "max_tokens": 250}
+            },
+            "is_active": False,  # Disabled by default, conflicts with standard reminders
+            "priority": 6,
+            "dependencies": [],
+            "conflicts_with": ["standard_appointment_reminder"]
+        },
+        {
+            "name": "Análisis de Satisfacción Automático",
+            "description": "IA analiza respuestas de pacientes para detectar insatisfacción y generar tareas de seguimiento",
+            "category": "patient_communication",
+            "trigger_type": "event_based",
+            "trigger_config": {"event": "patient_response_received"},
+            "conditions": [
+                {"type": "ai_sentiment", "field": "message_content", "operator": "sentiment_negative"}
+            ],
+            "actions": [
+                {"type": "create_priority_task", "priority": "medium", "color": "yellow"},
+                {"type": "tag_conversation", "tag": "requires_attention"},
+                {"type": "notify_manager", "reason": "patient_dissatisfaction"}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Analiza el sentimiento y satisfacción del paciente en su mensaje. Detecta: quejas, insatisfacción, confusión, o problemas. Clasifica el sentimiento (positivo/neutral/negativo) y el nivel de urgencia para seguimiento.",
+                "parameters": {"temperature": 0.2, "max_tokens": 150}
+            },
+            "is_active": True,
+            "priority": 7,
+            "dependencies": [],
+            "conflicts_with": []
+        },
+        {
+            "name": "Gestión Inteligente de Cancelaciones",
+            "description": "IA procesa cancelaciones, identifica patrones y sugiere reprogramación óptima",
+            "category": "appointment_management",
+            "trigger_type": "event_based",
+            "trigger_config": {"event": "appointment_cancelled"},
+            "conditions": [
+                {"type": "cancellation_reason", "field": "reason", "operator": "not_equals", "value": "emergency"}
+            ],
+            "actions": [
+                {"type": "analyze_cancellation_pattern", "ai_analysis": True},
+                {"type": "suggest_optimal_reschedule", "ai_optimized": True},
+                {"type": "send_reschedule_options", "personalized": True}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Analiza el patrón de cancelaciones del paciente y las razones. Sugiere el mejor momento para reprogramar considerando: historial de cancelaciones, disponibilidad, urgencia del tratamiento, y preferencias del paciente.",
+                "parameters": {"temperature": 0.4, "max_tokens": 200}
+            },
+            "is_active": True,
+            "priority": 5,
+            "dependencies": [],
+            "conflicts_with": []
+        },
+        {
+            "name": "Consentimientos Inteligentes",
+            "description": "IA personaliza mensajes de consentimiento según perfil del paciente y complejidad del tratamiento",
+            "category": "consent_management",
+            "trigger_type": "time_based",
+            "trigger_config": {"delay_hours": -24, "trigger_before": "appointment_with_consent"},
+            "conditions": [
+                {"type": "treatment_requires_consent", "field": "treatment_code", "operator": "in", "value": [9, 10, 11, 16]}
+            ],
+            "actions": [
+                {"type": "send_personalized_consent", "ai_personalized": True},
+                {"type": "adjust_explanation_level", "based_on_patient_profile": True}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Personaliza el mensaje de consentimiento considerando: edad del paciente, nivel educativo estimado, historial de ansiedad, y complejidad del tratamiento. Ajusta el lenguaje y nivel de detalle apropiadamente.",
+                "parameters": {"temperature": 0.5, "max_tokens": 300}
+            },
+            "is_active": False,  # Disabled by default, depends on consent system
+            "priority": 6,
+            "dependencies": ["consent_system_active"],
+            "conflicts_with": []
+        },
+        {
+            "name": "Detección de Pacientes en Riesgo",
+            "description": "IA identifica pacientes que podrían abandonar el tratamiento basándose en patrones de comportamiento",
+            "category": "patient_communication",
+            "trigger_type": "condition_based",
+            "trigger_config": {"check_frequency": "daily"},
+            "conditions": [
+                {"type": "ai_risk_analysis", "field": "patient_behavior", "operator": "high_risk_abandonment"}
+            ],
+            "actions": [
+                {"type": "create_retention_task", "priority": "high"},
+                {"type": "schedule_retention_call", "urgency": "medium"},
+                {"type": "send_care_message", "personalized": True}
+            ],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Analiza patrones de comportamiento del paciente: cancelaciones frecuentes, respuestas tardías, expresiones de preocupación por costos, cambios en el tono de comunicación. Evalúa riesgo de abandono del tratamiento (1-10).",
+                "parameters": {"temperature": 0.3, "max_tokens": 200}
+            },
+            "is_active": True,
+            "priority": 9,
+            "dependencies": ["patient_history_available"],
+            "conflicts_with": []
+        }
+    ]
+    
+    for automation_data in default_automations:
+        # Check if automation already exists
+        existing_automation = await db.automation_rules.find_one({
+            "name": automation_data["name"]
+        })
+        
+        if not existing_automation:
+            automation = AutomationRule(**automation_data)
+            await db.automation_rules.insert_one(prepare_for_mongo(automation.dict()))
+            logging.info(f"Created default AI automation: {automation_data['name']}")
+
+# AI-Powered Automation Routes
+@api_router.get("/ai-automations")
+async def get_ai_automations(
+    category: Optional[str] = None, 
+    is_active: Optional[bool] = None,
+    include_dependencies: bool = True
+):
+    """Get all AI-powered automation rules with optional filtering"""
+    try:
+        filter_query = {}
+        if category:
+            filter_query["category"] = category
+        if is_active is not None:
+            filter_query["is_active"] = is_active
+        
+        automations = await db.automation_rules.find(filter_query).sort("priority", -1).to_list(100)
+        
+        if include_dependencies:
+            # Add dependency information
+            for automation in automations:
+                automation_id = automation["id"]
+                
+                # Find dependencies
+                dependencies = await db.automation_dependencies.find({
+                    "dependent_automation_id": automation_id,
+                    "is_active": True
+                }).to_list(50)
+                
+                # Find what depends on this automation
+                dependents = await db.automation_dependencies.find({
+                    "parent_automation_id": automation_id,
+                    "is_active": True
+                }).to_list(50)
+                
+                automation["dependency_details"] = {
+                    "depends_on": dependencies,
+                    "has_dependents": dependents
+                }
+        
+        return [AutomationRule(**parse_from_mongo(automation)) for automation in automations]
+        
+    except Exception as e:
+        logging.error(f"Error fetching AI automations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching automations")
+
+@api_router.post("/ai-automations")
+async def create_ai_automation(automation: AutomationRule):
+    """Create a new AI-powered automation rule"""
+    try:
+        # Check if name already exists
+        existing_automation = await db.automation_rules.find_one({
+            "name": automation.name
+        })
+        
+        if existing_automation:
+            raise HTTPException(status_code=400, detail="Automation name already exists")
+        
+        # Validate dependencies
+        if automation.dependencies:
+            for dep_id in automation.dependencies:
+                dep_exists = await db.automation_rules.find_one({"id": dep_id})
+                if not dep_exists:
+                    raise HTTPException(status_code=400, detail=f"Dependency automation {dep_id} not found")
+        
+        await db.automation_rules.insert_one(prepare_for_mongo(automation.dict()))
+        
+        # Create dependency relationships
+        for dep_id in automation.dependencies:
+            dependency = AutomationDependency(
+                parent_automation_id=dep_id,
+                dependent_automation_id=automation.id,
+                dependency_type="prerequisite"
+            )
+            await db.automation_dependencies.insert_one(prepare_for_mongo(dependency.dict()))
+        
+        return {"message": "Automation created successfully", "automation_id": automation.id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating AI automation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating automation")
+
+@api_router.put("/ai-automations/{automation_id}")
+async def update_ai_automation(automation_id: str, update_data: dict):
+    """Update an AI automation rule"""
+    try:
+        update_fields = {k: v for k, v in update_data.items() if v is not None}
+        update_fields["updated_at"] = datetime.now(timezone.utc)
+        
+        result = await db.automation_rules.update_one(
+            {"id": automation_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Automation not found")
+            
+        return {"message": "Automation updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating AI automation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating automation")
+
+@api_router.post("/ai-automations/{automation_id}/toggle")
+async def toggle_ai_automation(automation_id: str):
+    """Toggle active status of an AI automation"""
+    try:
+        # Get current automation
+        automation = await db.automation_rules.find_one({"id": automation_id})
+        if not automation:
+            raise HTTPException(status_code=404, detail="Automation not found")
+        
+        new_status = not automation.get("is_active", True)
+        
+        # Check dependencies when activating
+        if new_status:
+            dependencies = automation.get("dependencies", [])
+            for dep_id in dependencies:
+                dep_automation = await db.automation_rules.find_one({"id": dep_id})
+                if not dep_automation or not dep_automation.get("is_active", False):
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Cannot activate: dependency '{dep_automation.get('name', dep_id)}' is not active"
+                    )
+        
+        # Check conflicts when activating
+        if new_status:
+            conflicts = automation.get("conflicts_with", [])
+            for conflict_name in conflicts:
+                conflict_automation = await db.automation_rules.find_one({"name": conflict_name, "is_active": True})
+                if conflict_automation:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Cannot activate: conflicts with active automation '{conflict_name}'"
+                    )
+        
+        result = await db.automation_rules.update_one(
+            {"id": automation_id},
+            {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        return {
+            "message": f"Automation {'activated' if new_status else 'deactivated'} successfully",
+            "is_active": new_status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error toggling AI automation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error toggling automation")
+
+@api_router.post("/ai-automations/{automation_id}/train")
+async def train_ai_automation(automation_id: str, training_data: AITrainingData):
+    """Train the AI behavior for an automation"""
+    try:
+        # Verify automation exists
+        automation = await db.automation_rules.find_one({"id": automation_id})
+        if not automation:
+            raise HTTPException(status_code=404, detail="Automation not found")
+        
+        # Store training data
+        training_data.automation_id = automation_id
+        training_data.training_status = "pending"
+        
+        await db.ai_training_data.insert_one(prepare_for_mongo(training_data.dict()))
+        
+        # Here you would typically trigger the actual AI training process
+        # For now, we'll simulate it by updating the automation's AI behavior
+        ai_behavior = {
+            "model": training_data.model_parameters.get("model", "gpt-4o-mini"),
+            "prompt": training_data.training_prompt,
+            "parameters": training_data.model_parameters,
+            "trained_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.automation_rules.update_one(
+            {"id": automation_id},
+            {"$set": {"ai_behavior": ai_behavior, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        return {
+            "message": "AI training initiated successfully",
+            "training_id": training_data.id,
+            "status": "training"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error training AI automation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error training automation")
+
+@api_router.get("/ai-automations/dependencies")
+async def get_automation_dependencies():
+    """Get all automation dependencies and their relationships"""
+    try:
+        dependencies = await db.automation_dependencies.find({"is_active": True}).to_list(200)
+        
+        # Build dependency graph
+        dependency_graph = {}
+        for dep in dependencies:
+            parent_id = dep["parent_automation_id"]
+            dependent_id = dep["dependent_automation_id"]
+            
+            if parent_id not in dependency_graph:
+                dependency_graph[parent_id] = {"dependents": [], "dependencies": []}
+            if dependent_id not in dependency_graph:
+                dependency_graph[dependent_id] = {"dependents": [], "dependencies": []}
+            
+            dependency_graph[parent_id]["dependents"].append({
+                "id": dependent_id,
+                "type": dep["dependency_type"],
+                "config": dep["dependency_config"]
+            })
+            
+            dependency_graph[dependent_id]["dependencies"].append({
+                "id": parent_id,
+                "type": dep["dependency_type"],
+                "config": dep["dependency_config"]
+            })
+        
+        return {"dependency_graph": dependency_graph, "raw_dependencies": dependencies}
+        
+    except Exception as e:
+        logging.error(f"Error fetching automation dependencies: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching dependencies")
+
+@api_router.get("/ai-automations/execution-history")
+async def get_automation_execution_history(
+    automation_id: Optional[str] = None,
+    limit: int = 50,
+    status: Optional[str] = None
+):
+    """Get execution history for automations"""
+    try:
+        filter_query = {}
+        if automation_id:
+            filter_query["automation_id"] = automation_id
+        if status:
+            filter_query["execution_status"] = status
+        
+        executions = await db.automation_executions.find(filter_query).sort("started_at", -1).limit(limit).to_list(limit)
+        
+        return [AutomationExecution(**parse_from_mongo(execution)) for execution in executions]
+        
+    except Exception as e:
+        logging.error(f"Error fetching execution history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching execution history")  
 @api_router.post("/consent-templates", response_model=ConsentTemplate)
 async def create_consent_template(template: dict):
     """Create a new consent template"""
