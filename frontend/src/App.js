@@ -3025,6 +3025,8 @@ function MainDashboard() {
         return <AITraining />;
       case "consents":
         return <ConsentManagement />;
+      case "automations":
+        return <AIAutomations />;
       case "gesden":
         return <GesdenManagement />;
       case "settings":
