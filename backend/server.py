@@ -4428,11 +4428,11 @@ def start_scheduler():
             replace_existing=True
         )
         
-        # Add daily WhatsApp summary job (runs at 6 PM on weekdays)
+        # Add daily WhatsApp summary job (runs at 9 PM on weekdays)
         scheduler.add_job(
             send_daily_whatsapp_summary,
             trigger='cron',
-            hour=18,
+            hour=21,  # 9 PM
             minute=0,
             monday=True,
             tuesday=True, 
