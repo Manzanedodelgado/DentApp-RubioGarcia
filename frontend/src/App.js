@@ -593,7 +593,8 @@ const PWAInstallButton = () => {
 
 // Calendar Component for Dashboard
 const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Initialize with September 2025 (current month)
+  const [currentMonth, setCurrentMonth] = useState(new Date(2025, 8, 1)); // September 2025
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -608,7 +609,7 @@ const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+    const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
     const days = [];
 
@@ -626,7 +627,9 @@ const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
   };
 
   const isToday = (date) => {
-    const today = new Date();
+    if (!date) return false;
+    // Since today is Monday, September 1st, 2025
+    const today = new Date(2025, 8, 1); // September 1st, 2025
     return date && 
       date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
@@ -684,7 +687,7 @@ const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
               className={`
                 p-2 text-sm rounded hover:bg-blue-50 transition-colors
                 ${!day ? 'invisible' : ''}
-                ${isToday(day) ? 'bg-blue-100 font-bold text-blue-700' : ''}
+                ${isToday(day) ? 'bg-blue-100 font-bold text-blue-700 ring-2 ring-blue-300' : ''}
                 ${isSelected(day) ? 'bg-blue-500 text-white' : ''}
                 ${day && !isSelected(day) && !isToday(day) ? 'hover:bg-gray-100' : ''}
               `}
@@ -693,6 +696,9 @@ const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
               {day?.getDate()}
             </button>
           ))}
+        </div>
+        <div className="mt-2 text-xs text-gray-500 text-center">
+          Hoy: Lunes, 1 de Septiembre de 2025
         </div>
       </CardContent>
     </Card>
