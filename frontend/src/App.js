@@ -938,7 +938,7 @@ const StatisticsCharts = ({ stats }) => {
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date(2025, 8, 1)); // September 1st, 2025 (today)
 
   useEffect(() => {
     fetchDashboardStats();
