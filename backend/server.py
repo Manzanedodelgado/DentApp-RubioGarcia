@@ -3835,7 +3835,297 @@ async def send_daily_whatsapp_summary():
         logging.error(f"Error sending daily WhatsApp qualitative summary: {str(e)}")
         return False
 
-# Daily Summary Routes
+# User Management and Permissions System
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    email: str
+    full_name: str
+    role: str = "viewer"  # 'admin', 'staff', 'viewer', 'readonly'
+    permissions: List[str] = Field(default_factory=list)
+    is_active: bool = True
+    last_login: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = "admin"
+
+class UserPermission(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str
+    category: str  # 'read', 'write', 'admin', 'special'
+    resource: str  # 'conversations', 'appointments', 'patients', 'settings', etc.
+
+class UserSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    session_token: str
+    expires_at: datetime
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Create default permissions and users
+async def create_default_permissions():
+    """Create default user permissions"""
+    
+    default_permissions = [
+        # Read permissions
+        {"name": "read_conversations", "description": "Ver conversaciones de WhatsApp", "category": "read", "resource": "conversations"},
+        {"name": "read_appointments", "description": "Ver citas y agenda", "category": "read", "resource": "appointments"},
+        {"name": "read_patients", "description": "Ver información de pacientes", "category": "read", "resource": "patients"},
+        {"name": "read_summaries", "description": "Ver resúmenes diarios", "category": "read", "resource": "summaries"},
+        {"name": "read_automations", "description": "Ver automatizaciones", "category": "read", "resource": "automations"},
+        {"name": "read_consents", "description": "Ver consentimientos", "category": "read", "resource": "consents"},
+        
+        # Write permissions
+        {"name": "write_conversations", "description": "Responder mensajes de WhatsApp", "category": "write", "resource": "conversations"},
+        {"name": "write_appointments", "description": "Crear/modificar citas", "category": "write", "resource": "appointments"},
+        {"name": "write_patients", "description": "Crear/modificar pacientes", "category": "write", "resource": "patients"},
+        {"name": "write_templates", "description": "Crear/modificar plantillas", "category": "write", "resource": "templates"},
+        {"name": "write_consents", "description": "Enviar consentimientos", "category": "write", "resource": "consents"},
+        
+        # Admin permissions
+        {"name": "admin_users", "description": "Gestionar usuarios y permisos", "category": "admin", "resource": "users"},
+        {"name": "admin_settings", "description": "Configurar sistema", "category": "admin", "resource": "settings"},
+        {"name": "admin_automations", "description": "Gestionar automatizaciones", "category": "admin", "resource": "automations"},
+        {"name": "admin_ai_training", "description": "Entrenar IA", "category": "admin", "resource": "ai_training"},
+        
+        # Special permissions
+        {"name": "export_data", "description": "Exportar datos", "category": "special", "resource": "data"},
+        {"name": "view_analytics", "description": "Ver estadísticas avanzadas", "category": "special", "resource": "analytics"},
+        {"name": "emergency_access", "description": "Acceso de emergencia a todas las funciones", "category": "special", "resource": "emergency"}
+    ]
+    
+    for perm_data in default_permissions:
+        existing_permission = await db.user_permissions.find_one({
+            "name": perm_data["name"]
+        })
+        
+        if not existing_permission:
+            permission = UserPermission(**perm_data)
+            await db.user_permissions.insert_one(prepare_for_mongo(permission.dict()))
+            logging.info(f"Created permission: {perm_data['name']}")
+
+async def create_default_users():
+    """Create default users with different permission levels"""
+    
+    default_users = [
+        {
+            "username": "admin",
+            "email": "admin@rubiogarciadental.com",
+            "full_name": "Administrador del Sistema",
+            "role": "admin",
+            "permissions": [
+                "read_conversations", "read_appointments", "read_patients", "read_summaries", 
+                "read_automations", "read_consents", "write_conversations", "write_appointments", 
+                "write_patients", "write_templates", "write_consents", "admin_users", 
+                "admin_settings", "admin_automations", "admin_ai_training", "export_data", 
+                "view_analytics", "emergency_access"
+            ],
+            "is_active": True
+        },
+        {
+            "username": "staff",
+            "email": "staff@rubiogarciadental.com", 
+            "full_name": "Personal de la Clínica",
+            "role": "staff",
+            "permissions": [
+                "read_conversations", "read_appointments", "read_patients", "read_summaries",
+                "write_conversations", "write_appointments", "write_patients", "write_consents"
+            ],
+            "is_active": True
+        },
+        {
+            "username": "viewer",
+            "email": "viewer@rubiogarciadental.com",
+            "full_name": "Usuario de Solo Lectura",
+            "role": "viewer", 
+            "permissions": [
+                "read_conversations", "read_appointments", "read_patients", "read_summaries"
+            ],
+            "is_active": True
+        },
+        {
+            "username": "readonly",
+            "email": "readonly@rubiogarciadental.com",
+            "full_name": "Acceso de Solo Lectura Completo",
+            "role": "readonly",
+            "permissions": [
+                "read_conversations", "read_appointments", "read_patients", "read_summaries",
+                "read_automations", "read_consents", "view_analytics"
+            ],
+            "is_active": True
+        }
+    ]
+    
+    for user_data in default_users:
+        existing_user = await db.users.find_one({
+            "username": user_data["username"]
+        })
+        
+        if not existing_user:
+            user = User(**user_data)
+            await db.users.insert_one(prepare_for_mongo(user.dict()))
+            logging.info(f"Created user: {user_data['username']} ({user_data['role']})")
+
+# User Management Routes
+@api_router.get("/users")
+async def get_users():
+    """Get all users (admin only)"""
+    try:
+        users = await db.users.find({}).to_list(100)
+        return [User(**parse_from_mongo(user)) for user in users]
+        
+    except Exception as e:
+        logging.error(f"Error fetching users: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching users")
+
+@api_router.post("/users")
+async def create_user(user: User):
+    """Create a new user (admin only)"""
+    try:
+        # Check if username already exists
+        existing_user = await db.users.find_one({"username": user.username})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Check if email already exists
+        existing_email = await db.users.find_one({"email": user.email})
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
+        await db.users.insert_one(prepare_for_mongo(user.dict()))
+        return {"message": "User created successfully", "user_id": user.id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating user")
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, update_data: dict):
+    """Update user (admin only)"""
+    try:
+        update_fields = {k: v for k, v in update_data.items() if v is not None}
+        
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        return {"message": "User updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating user")
+
+@api_router.get("/permissions")
+async def get_permissions():
+    """Get all available permissions"""
+    try:
+        permissions = await db.user_permissions.find({}).to_list(100)
+        return [UserPermission(**parse_from_mongo(permission)) for permission in permissions]
+        
+    except Exception as e:
+        logging.error(f"Error fetching permissions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching permissions")
+
+@api_router.post("/auth/login-readonly")
+async def login_readonly(credentials: dict):
+    """Login for readonly users"""
+    try:
+        username = credentials.get("username")
+        
+        if not username:
+            raise HTTPException(status_code=400, detail="Username is required")
+        
+        # Find user
+        user = await db.users.find_one({"username": username, "is_active": True})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+        # Check if user has read permissions
+        user_permissions = user.get("permissions", [])
+        has_read_access = any(perm.startswith("read_") for perm in user_permissions)
+        
+        if not has_read_access:
+            raise HTTPException(status_code=403, detail="User does not have read permissions")
+        
+        # Create session token
+        session_token = str(uuid.uuid4())
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=8)  # 8 hour session
+        
+        session = UserSession(
+            user_id=user["id"],
+            session_token=session_token,
+            expires_at=expires_at
+        )
+        
+        await db.user_sessions.insert_one(prepare_for_mongo(session.dict()))
+        
+        # Update last login
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_login": datetime.now(timezone.utc)}}
+        )
+        
+        return {
+            "token": session_token,
+            "user": {
+                "id": user["id"],
+                "username": user["username"],
+                "full_name": user["full_name"],
+                "role": user["role"],
+                "permissions": user_permissions
+            },
+            "expires_at": expires_at.isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error in readonly login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login error")
+
+@api_router.get("/auth/verify-permissions")
+async def verify_user_permissions(token: str, required_permission: str):
+    """Verify if user has required permission"""
+    try:
+        # Find active session
+        session = await db.user_sessions.find_one({
+            "session_token": token,
+            "expires_at": {"$gt": datetime.now(timezone.utc)}
+        })
+        
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid or expired session")
+        
+        # Get user
+        user = await db.users.find_one({"id": session["user_id"], "is_active": True})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+        # Check permission
+        user_permissions = user.get("permissions", [])
+        has_permission = required_permission in user_permissions or "emergency_access" in user_permissions
+        
+        return {
+            "has_permission": has_permission,
+            "user_role": user["role"],
+            "user_permissions": user_permissions
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error verifying permissions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Permission verification error")
 @api_router.get("/daily-summary/settings")
 async def get_daily_summary_settings():
     """Get daily summary settings"""
