@@ -1542,6 +1542,353 @@ const AITraining = () => {
     </div>
   );
 };
+// User Management Component
+const UserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    role: 'viewer',
+    email: '',
+    permissions: []
+  });
+
+  const roles = [
+    { value: 'admin', label: 'Administrador', description: 'Acceso completo al sistema' },
+    { value: 'staff', label: 'Personal', description: 'Acceso a gestión de pacientes y citas' },
+    { value: 'viewer', label: 'Visualizador', description: 'Solo lectura de datos básicos' },
+    { value: 'readonly', label: 'Solo Lectura', description: 'Acceso completo de solo lectura' }
+  ];
+
+  const permissionCategories = [
+    {
+      category: 'read',
+      label: 'Lectura',
+      permissions: [
+        { key: 'read_contacts', label: 'Ver pacientes' },
+        { key: 'read_appointments', label: 'Ver citas' },
+        { key: 'read_messages', label: 'Ver mensajes' },
+        { key: 'read_stats', label: 'Ver estadísticas' }
+      ]
+    },
+    {
+      category: 'write', 
+      label: 'Escritura',
+      permissions: [
+        { key: 'write_contacts', label: 'Gestionar pacientes' },
+        { key: 'write_appointments', label: 'Gestionar citas' },
+        { key: 'write_messages', label: 'Enviar mensajes' },
+        { key: 'write_templates', label: 'Gestionar plantillas' }
+      ]
+    },
+    {
+      category: 'admin',
+      label: 'Administración', 
+      permissions: [
+        { key: 'admin_users', label: 'Gestionar usuarios' },
+        { key: 'admin_settings', label: 'Configuraciones del sistema' },
+        { key: 'admin_ai', label: 'Configurar IA' },
+        { key: 'admin_automations', label: 'Gestionar automatizaciones' }
+      ]
+    }
+  ];
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${API}/users`);
+      setUsers(response.data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast.error("Error cargando usuarios");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createUser = async () => {
+    try {
+      await axios.post(`${API}/users`, newUser);
+      toast.success("Usuario creado exitosamente");
+      setShowCreateDialog(false);
+      setNewUser({ username: '', role: 'viewer', email: '', permissions: [] });
+      fetchUsers();
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast.error("Error al crear usuario");
+    }
+  };
+
+  const updateUser = async () => {
+    try {
+      await axios.put(`${API}/users/${selectedUser.id}`, selectedUser);
+      toast.success("Usuario actualizado exitosamente");
+      setShowEditDialog(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toast.error("Error al actualizar usuario");
+    }
+  };
+
+  const getRoleColor = (role) => {
+    const colors = {
+      admin: "bg-red-100 text-red-800",
+      staff: "bg-blue-100 text-blue-800",
+      viewer: "bg-yellow-100 text-yellow-800",
+      readonly: "bg-gray-100 text-gray-800"
+    };
+    return colors[role] || colors.viewer;
+  };
+
+  const getRoleLabel = (role) => {
+    const roleObj = roles.find(r => r.value === role);
+    return roleObj ? roleObj.label : role;
+  };
+
+  const defaultPermissionsByRole = {
+    admin: ['read_contacts', 'read_appointments', 'read_messages', 'read_stats', 'write_contacts', 'write_appointments', 'write_messages', 'write_templates', 'admin_users', 'admin_settings', 'admin_ai', 'admin_automations'],
+    staff: ['read_contacts', 'read_appointments', 'read_messages', 'read_stats', 'write_contacts', 'write_appointments', 'write_messages', 'write_templates'],
+    viewer: ['read_contacts', 'read_appointments', 'read_messages', 'read_stats'],
+    readonly: ['read_contacts', 'read_appointments', 'read_messages', 'read_stats']
+  };
+
+  const handleRoleChange = (role, isNewUser = false) => {
+    const permissions = defaultPermissionsByRole[role] || [];
+    if (isNewUser) {
+      setNewUser({ ...newUser, role, permissions });
+    } else {
+      setSelectedUser({ ...selectedUser, role, permissions });
+    }
+  };
+
+  return (
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900">Gestión de Usuarios</h1>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Nuevo Usuario
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="w-full max-w-lg mx-4">
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+              <DialogDescription>
+                Agrega un nuevo usuario al sistema con permisos específicos
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new_username">Nombre de Usuario *</Label>
+                <Input
+                  id="new_username"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                  placeholder="nombre_usuario"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new_email">Email</Label>
+                <Input
+                  id="new_email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  placeholder="usuario@ejemplo.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new_role">Rol</Label>
+                <Select value={newUser.role} onValueChange={(role) => handleRoleChange(role, true)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map(role => (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{role.label}</span>
+                          <span className="text-xs text-gray-500">{role.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={createUser} disabled={!newUser.username}>
+                Crear Usuario
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Users List */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : users.length > 0 ? (
+          users.map((user) => (
+            <Card key={user.id} className="p-4 hover:shadow-md transition-shadow">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div className="flex items-center space-x-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-slate-900">{user.username}</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-slate-500 gap-1 sm:gap-0">
+                      {user.email && (
+                        <div className="flex items-center space-x-1">
+                          <Mail className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{user.email}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-1">
+                        <UserCheck className="w-3 h-3 flex-shrink-0" />
+                        <span>{user.permissions?.length || 0} permisos</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between lg:justify-end space-x-2">
+                  <Badge className={`${getRoleColor(user.role)} text-xs flex-shrink-0`}>
+                    {getRoleLabel(user.role)}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setShowEditDialog(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <Card className="p-8 text-center">
+            <Shield className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-600 mb-2">No hay usuarios</h3>
+            <p className="text-slate-500">Crea el primer usuario para comenzar.</p>
+          </Card>
+        )}
+      </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Usuario: {selectedUser?.username}</DialogTitle>
+            <DialogDescription>
+              Modifica los permisos y configuración del usuario
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit_email">Email</Label>
+                <Input
+                  id="edit_email"
+                  type="email"
+                  value={selectedUser.email || ''}
+                  onChange={(e) => setSelectedUser({...selectedUser, email: e.target.value})}
+                  placeholder="usuario@ejemplo.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_role">Rol</Label>
+                <Select value={selectedUser.role} onValueChange={(role) => handleRoleChange(role, false)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map(role => (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{role.label}</span>
+                          <span className="text-xs text-gray-500">{role.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Permisos Personalizados</Label>
+                <div className="mt-2 space-y-4">
+                  {permissionCategories.map(category => (
+                    <div key={category.category} className="border rounded-lg p-3">
+                      <h4 className="font-medium text-sm text-gray-900 mb-2">{category.label}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {category.permissions.map(permission => (
+                          <div key={permission.key} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={permission.key}
+                              checked={selectedUser.permissions?.includes(permission.key) || false}
+                              onChange={(e) => {
+                                const permissions = selectedUser.permissions || [];
+                                if (e.target.checked) {
+                                  setSelectedUser({
+                                    ...selectedUser,
+                                    permissions: [...permissions, permission.key]
+                                  });
+                                } else {
+                                  setSelectedUser({
+                                    ...selectedUser,
+                                    permissions: permissions.filter(p => p !== permission.key)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <label htmlFor={permission.key} className="text-sm text-gray-700">
+                              {permission.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={updateUser}>
+              Actualizar Usuario
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
 
 // Communications Component - WhatsApp-style interface with patient chat and AI
 const Communications = () => {
