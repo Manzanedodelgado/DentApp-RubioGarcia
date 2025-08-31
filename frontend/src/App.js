@@ -2883,6 +2883,8 @@ function MainDashboard() {
         return <Messages />;
       case "ai-training":
         return <AITraining />;
+      case "consents":
+        return <ConsentManagement />;
       case "gesden":
         return <GesdenManagement />;
       case "settings":
