@@ -327,6 +327,28 @@ class WhatsAppReminder(BaseModel):
     appointment_data: Dict[str, Any]
 
 # Conversation Status Models
+# Consent Message Template Models
+class ConsentMessageTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    template_name: str
+    template_type: str  # 'appointment_confirmation', 'consent_form', 'survey_invite', 'lopd_consent'
+    message_text: str
+    variables: List[str] = Field(default_factory=list)  # Available variables like {patient_name}, {treatment}
+    is_active: bool = True
+    treatment_code: Optional[int] = None  # For treatment-specific templates
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = "admin"
+
+class ConsentMessageSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    setting_name: str
+    setting_value: Union[str, bool, int]
+    description: str
+    category: str = "consent_messages"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # WhatsApp Interactive Button Response Models
 class ButtonResponse(BaseModel):
     phone_number: str
