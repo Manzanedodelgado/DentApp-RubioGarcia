@@ -4445,7 +4445,7 @@ def start_scheduler():
         )
         
         scheduler.start()
-        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly) + consent deliveries (15min) + daily WhatsApp summary (6 PM weekdays)")
+        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly) + consent deliveries (15min) + daily WhatsApp summary (9 PM weekdays)")
 
 def stop_scheduler():
     """Stop the appointment sync scheduler"""
