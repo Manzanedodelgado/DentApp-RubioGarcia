@@ -341,6 +341,28 @@ const SettingsContent = ({
                       </p>
                     </div>
                     
+                    {/* Permission Status */}
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-800 mb-2">Estado del Micrófono</h4>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            stream.getTracks().forEach(track => track.stop());
+                            alert('✅ Micrófono funcionando correctamente');
+                          } catch (error) {
+                            alert('❌ Error con el micrófono: ' + error.message);
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Probar Micrófono
+                      </button>
+                      <p className="text-sm text-blue-700 mt-2">
+                        Haz clic para verificar si el micrófono tiene permisos y funciona correctamente.
+                      </p>
+                    </div>
+                    
                     <div className="border rounded-lg p-6 text-center">
                       <button
                         onClick={isListening ? stopListening : startListening}
@@ -358,8 +380,8 @@ const SettingsContent = ({
                       </h4>
                       <p className="text-sm text-gray-600 mt-1">
                         {isListening 
-                          ? "Di tu comando, por ejemplo: 'Envía mensaje a María'" 
-                          : "Mantén presionado para activar el micrófono"
+                          ? "Di tu comando, por ejemplo: 'Hola asistente, muéstrame las citas de hoy'" 
+                          : "Haz clic para activar el micrófono y dar un comando de voz"
                         }
                       </p>
                     </div>
@@ -374,22 +396,55 @@ const SettingsContent = ({
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium text-blue-800 mb-2">Comandos Disponibles</h4>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• "Envía mensaje a [nombre del paciente]"</li>
-                        <li>• "Programa recordatorio para mañana"</li>
+                        <li>• "Hola asistente, ¿cómo puedes ayudarme?"</li>
                         <li>• "Muéstrame las citas de hoy"</li>
-                        <li>• "Agendar cita para [paciente]"</li>
+                        <li>• "¿Qué pacientes tengo pendientes?"</li>
+                        <li>• "Agenda una cita para mañana"</li>
+                        <li>• "Envía un recordatorio a todos los pacientes"</li>
+                      </ul>
+                    </div>
+                    
+                    {/* Troubleshooting Tips */}
+                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                      <h4 className="font-medium text-yellow-800 mb-2">¿No funciona el micrófono?</h4>
+                      <ul className="text-sm text-yellow-700 space-y-1">
+                        <li>1. Verifica que has dado permisos de micrófono al navegador</li>
+                        <li>2. Revisa que tu micrófono no esté silenciado</li>
+                        <li>3. Prueba en otro navegador (Chrome recomendado)</li>
+                        <li>4. Verifica que estés usando HTTPS (protocolo seguro)</li>
                       </ul>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                    <div className="flex items-center space-x-2">
-                      <MicOff className="w-5 h-5 text-yellow-600" />
-                      <span className="text-yellow-800 font-medium">Micrófono no disponible</span>
+                  <div className="space-y-4">
+                    <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <div className="flex items-center space-x-2">
+                        <MicOff className="w-5 h-5 text-red-600" />
+                        <span className="text-red-800 font-medium">Micrófono no disponible</span>
+                      </div>
+                      <p className="text-sm text-red-700 mt-1">
+                        Tu navegador no soporta reconocimiento de voz o no has dado permisos al micrófono
+                      </p>
                     </div>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      Tu navegador no soporta reconocimiento de voz o no has dado permisos al micrófono
-                    </p>
+                    
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-800 mb-2">Cómo activar el micrófono:</h4>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>1. <strong>Chrome:</strong> Haz clic en el icono de candado → Permisos → Micrófono → Permitir</li>
+                        <li>2. <strong>Firefox:</strong> Haz clic en el icono de micrófono en la barra de direcciones → Permitir</li>
+                        <li>3. <strong>Safari:</strong> Safari → Preferencias → Sitios web → Micrófono → Permitir</li>
+                        <li>4. Actualiza la página después de cambiar los permisos</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="text-center">
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Recargar Página
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
