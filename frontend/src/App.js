@@ -18,6 +18,7 @@ import VoiceAssistantWidget from "./components/VoiceAssistantWidget";
 import WhatsAppManager from "./components/WhatsAppManager";
 import GesdenManagement from './components/ui/gesden-management';
 import ConsentManagement from './components/ui/consent-management';
+import AIAutomations from './components/ui/ai-automations';
 
 // API Configuration
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
