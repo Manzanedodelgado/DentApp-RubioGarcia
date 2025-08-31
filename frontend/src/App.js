@@ -3833,6 +3833,8 @@ function MainDashboard() {
         return <Messages />;
       case "ai-training":
         return <AITraining />;
+      case "user-management":
+        return <UserManagement />;
       case "consents":
         return <ConsentManagement />;
       case "automations":
