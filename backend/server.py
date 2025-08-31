@@ -7,7 +7,7 @@ from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal, Dict, Any
+from typing import List, Optional, Literal, Dict, Any, Union
 import uuid
 from datetime import datetime, timezone, timedelta
 from enum import Enum
