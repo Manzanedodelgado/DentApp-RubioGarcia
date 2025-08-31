@@ -3074,6 +3074,9 @@ const Reminders = () => {
   const [csvFile, setCsvFile] = useState(null);
   const [sentReminders, setSentReminders] = useState({});
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
+
   // Format date for API
   const formatDateForAPI = (date) => {
     return date.toISOString().split('T')[0];
@@ -3105,11 +3108,18 @@ const Reminders = () => {
     setLoading(true);
     try {
       const dateStr = formatDateForAPI(date);
+      console.log('Reminders: Fetching appointments for date:', dateStr);
+      console.log('Reminders: API URL:', `${API}/appointments/by-date?date=${dateStr}`);
+      
       const response = await axios.get(`${API}/appointments/by-date?date=${dateStr}`);
-      setAppointments(response.data);
+      console.log('Reminders: Appointments response:', response.data);
+      console.log('Reminders: Number of appointments:', response.data ? response.data.length : 0);
+      
+      setAppointments(response.data || []);
       setSelectedAppointments([]); // Reset selections
     } catch (error) {
       console.error("Error fetching appointments:", error);
+      console.error("Reminders: API endpoint:", `${API}/appointments/by-date?date=${formatDateForAPI(date)}`);
       setAppointments([]);
     } finally {
       setLoading(false);
