@@ -3580,9 +3580,9 @@ class DailySummarySettings(BaseModel):
 
 📈 RESUMEN:
 {summary_text}"""
-# Daily WhatsApp Summary Generation
+# Daily WhatsApp Summary Generation (Qualitative)
 async def generate_daily_whatsapp_summary(target_date=None):
-    """Generate comprehensive daily WhatsApp summary"""
+    """Generate comprehensive qualitative daily WhatsApp summary"""
     try:
         if target_date is None:
             target_date = datetime.now(timezone.utc).date()
@@ -3591,167 +3591,193 @@ async def generate_daily_whatsapp_summary(target_date=None):
         start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
         end_date = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=timezone.utc)
         
-        logging.info(f"Generating WhatsApp summary for {target_date}")
+        logging.info(f"Generating qualitative WhatsApp summary for {target_date}")
         
-        # Initialize summary data
-        summary_data = {
-            "date": target_date.strftime("%d/%m/%Y"),
-            "total_conversations": 0,
-            "new_conversations": 0,
-            "urgent_conversations": 0,
-            "appointments_confirmed": 0,
-            "appointments_cancelled": 0,
-            "consents_sent": 0,
-            "consents_accepted": 0,
-            "surveys_completed": 0,
-            "ai_automations_triggered": 0,
-            "patient_satisfaction": "N/A",
-            "top_concerns": [],
-            "summary_text": ""
-        }
-        
-        # Get conversation data for the day
+        # Get all conversations for the day with details
         conversations = await db.conversation_status.find({
             "timestamp": {"$gte": start_date, "$lte": end_date}
         }).to_list(1000)
         
-        summary_data["total_conversations"] = len(conversations)
-        
-        # Count new conversations
-        summary_data["new_conversations"] = len([c for c in conversations if c.get("status_description") == "Nueva conversación"])
-        
-        # Count urgent conversations (red and black urgency)
-        urgent_colors = ["red", "black"]
-        urgent_conversations = [c for c in conversations if c.get("urgency_color") in urgent_colors]
-        summary_data["urgent_conversations"] = len(urgent_conversations)
-        
-        # Get button responses for appointments
-        button_responses = await db.button_responses.find({
-            "timestamp": {"$gte": start_date, "$lte": end_date}
-        }).to_list(1000)
-        
-        for response in button_responses:
-            button_id = response.get("button_id", "")
-            if button_id == "confirm_appointment":
-                summary_data["appointments_confirmed"] += 1
-            elif button_id == "cancel_appointment":
-                summary_data["appointments_cancelled"] += 1
-        
-        # Get consent deliveries
-        consent_deliveries = await db.consent_deliveries.find({
-            "sent_at": {"$gte": start_date, "$lte": end_date}
-        }).to_list(1000)
-        summary_data["consents_sent"] = len(consent_deliveries)
-        
-        # Get consent responses
-        consent_responses = await db.consent_responses.find({
-            "timestamp": {"$gte": start_date, "$lte": end_date}
-        }).to_list(1000)
-        
-        accepted_consents = [r for r in consent_responses if r.get("response") == "accepted"]
-        summary_data["consents_accepted"] = len(accepted_consents)
-        
-        # Get automation executions
-        automation_executions = await db.automation_executions.find({
-            "started_at": {"$gte": start_date, "$lte": end_date},
-            "execution_status": "completed"
-        }).to_list(1000)
-        summary_data["ai_automations_triggered"] = len(automation_executions)
-        
-        # Analyze top concerns from messages
+        # Get detailed messages for context
         messages = await db.messages.find({
             "timestamp": {"$gte": start_date, "$lte": end_date}
         }).to_list(1000)
         
-        concern_keywords = {
-            "dolor": 0,
-            "urgencia": 0,
-            "cita": 0,
-            "cancelar": 0,
-            "precio": 0,
-            "seguro": 0,
-            "horario": 0
-        }
+        # Get pending conversations (not responded or urgent)
+        pending_conversations = await db.conversation_status.find({
+            "pending_response": True,
+            "timestamp": {"$gte": start_date - timedelta(days=2), "$lte": end_date}  # Include previous days
+        }).to_list(100)
         
-        for message in messages:
-            content = message.get("content", "").lower()
-            for keyword in concern_keywords.keys():
-                if keyword in content:
-                    concern_keywords[keyword] += 1
+        # Get urgent pending conversations
+        urgent_pending = [c for c in pending_conversations if c.get("urgency_color") in ["red", "black"]]
         
-        # Get top 3 concerns
-        top_concerns = sorted(concern_keywords.items(), key=lambda x: x[1], reverse=True)[:3]
-        summary_data["top_concerns"] = [f"• {concern.capitalize()}: {count}" for concern, count in top_concerns if count > 0]
+        # Organize conversations by patient
+        patient_summaries = {}
         
-        if not summary_data["top_concerns"]:
-            summary_data["top_concerns"] = ["• Sin temas destacados"]
+        for conv in conversations:
+            patient_name = conv.get("contact_name", "Paciente desconocido")
+            patient_phone = conv.get("contact_id", "")
+            
+            if patient_name not in patient_summaries:
+                patient_summaries[patient_name] = {
+                    "phone": patient_phone,
+                    "conversations": [],
+                    "urgency": conv.get("urgency_color", "gray"),
+                    "status": conv.get("status_description", ""),
+                    "pending": conv.get("pending_response", False)
+                }
+            
+            # Find related messages for this conversation
+            patient_messages = [m for m in messages if m.get("contact_id") == patient_phone]
+            
+            if patient_messages:
+                # Get the main consultation/query from messages
+                consultation = ""
+                result = conv.get("status_description", "En proceso")
+                
+                # Extract key consultation from messages
+                for msg in patient_messages[-3:]:  # Last 3 messages for context
+                    content = msg.get("content", "")
+                    if len(content) > 20:  # Meaningful content
+                        consultation = content[:100] + ("..." if len(content) > 100 else "")
+                        break
+                
+                patient_summaries[patient_name]["conversations"].append({
+                    "consultation": consultation,
+                    "result": result,
+                    "time": conv.get("timestamp"),
+                    "urgency": conv.get("urgency_color", "gray")
+                })
         
-        # Calculate satisfaction score (simplified)
-        if conversations:
-            positive_indicators = len([c for c in conversations if c.get("urgency_color") == "green"])
-            satisfaction_score = (positive_indicators / len(conversations)) * 100
-            summary_data["patient_satisfaction"] = f"{satisfaction_score:.1f}%"
+        # Generate qualitative summary text
+        summary_parts = []
         
-        # Generate AI summary text
-        summary_context = f"""
-        Día: {target_date.strftime('%A %d de %B %Y')}
-        Total conversaciones: {summary_data['total_conversations']}
-        Urgencias: {summary_data['urgent_conversations']}
-        Citas confirmadas: {summary_data['appointments_confirmed']}
-        Consentimientos: {summary_data['consents_sent']} enviados, {summary_data['consents_accepted']} aceptados
-        Automatizaciones IA: {summary_data['ai_automations_triggered']}
-        """
+        # Header
+        summary_parts.append(f"📊 RESUMEN CUALITATIVO DIARIO - RUBIO GARCÍA DENTAL")
+        summary_parts.append(f"📅 {target_date.strftime('%A %d de %B %Y')}")
+        summary_parts.append("")
         
-        try:
-            # Use Emergent LLM for summary generation
-            ai_settings = await db.ai_settings.find_one({})
-            if ai_settings:
-                from emergentintegrations import LLMManager
-                llm = LLMManager()
+        # Patient interactions section
+        if patient_summaries:
+            summary_parts.append("👥 INTERACCIONES POR PACIENTE:")
+            summary_parts.append("")
+            
+            for patient_name, details in patient_summaries.items():
+                urgency_emoji = {
+                    "red": "🔴",
+                    "black": "⚫",
+                    "yellow": "🟡",
+                    "green": "🟢",
+                    "gray": "⚪"
+                }.get(details["urgency"], "⚪")
                 
-                summary_prompt = f"""Eres el asistente de la clínica RUBIO GARCÍA DENTAL. 
-                Genera un resumen ejecutivo breve (máximo 2 líneas) sobre la actividad de WhatsApp del día:
+                summary_parts.append(f"{urgency_emoji} **{patient_name}**")
                 
-                {summary_context}
+                for conv in details["conversations"]:
+                    if conv["consultation"]:
+                        summary_parts.append(f"   📝 Consulta: {conv['consultation']}")
+                        summary_parts.append(f"   📋 Resultado: {conv['result']}")
+                        summary_parts.append("")
+        
+        # Pending messages section
+        if pending_conversations:
+            summary_parts.append("⏳ MENSAJES PENDIENTES DE RESPUESTA:")
+            summary_parts.append("")
+            
+            for pending in pending_conversations:
+                patient_name = pending.get("contact_name", "Paciente desconocido")
+                last_message = pending.get("last_message", "")
+                urgency = pending.get("urgency_color", "gray")
                 
-                Enfócate en aspectos destacados, tendencias importantes o alertas que requieran atención."""
+                urgency_emoji = {
+                    "red": "🔴 URGENTE",
+                    "black": "⚫ CRÍTICO", 
+                    "yellow": "🟡 IMPORTANTE",
+                    "green": "🟢 NORMAL",
+                    "gray": "⚪ NORMAL"
+                }.get(urgency, "⚪ NORMAL")
                 
-                ai_response = await llm.generate_text(
-                    prompt=summary_prompt,
-                    model="gpt-4o-mini",
-                    temperature=0.3,
-                    max_tokens=150
-                )
+                pending_time = pending.get("timestamp")
+                if pending_time:
+                    hours_pending = (datetime.now(timezone.utc) - pending_time).total_seconds() / 3600
+                    time_text = f"({int(hours_pending)}h pendiente)"
+                else:
+                    time_text = ""
                 
-                summary_data["summary_text"] = ai_response.strip()
-            else:
-                summary_data["summary_text"] = f"Día {'activo' if summary_data['total_conversations'] > 10 else 'tranquilo'} con {summary_data['total_conversations']} conversaciones. {'⚠️ Varias urgencias detectadas.' if summary_data['urgent_conversations'] > 3 else '✅ Actividad normal.'}"
+                summary_parts.append(f"{urgency_emoji} - {patient_name} {time_text}")
+                if last_message:
+                    summary_parts.append(f"   💬 \"{last_message[:80]}{'...' if len(last_message) > 80 else ''}\"")
+                summary_parts.append("")
+        
+        # Urgent pending section (highlight)
+        if urgent_pending:
+            summary_parts.append("🚨 MENSAJES URGENTES SIN RESPONDER:")
+            summary_parts.append("")
+            
+            for urgent in urgent_pending:
+                patient_name = urgent.get("contact_name", "Paciente desconocido")
+                last_message = urgent.get("last_message", "")
+                urgency = urgent.get("urgency_color", "red")
                 
-        except Exception as e:
-            logging.error(f"Error generating AI summary: {str(e)}")
-            summary_data["summary_text"] = f"Actividad {'alta' if summary_data['total_conversations'] > 10 else 'normal'} con {summary_data['total_conversations']} conversaciones procesadas."
+                urgency_text = "🔴 URGENTE" if urgency == "red" else "⚫ CRÍTICO"
+                
+                pending_time = urgent.get("timestamp")
+                if pending_time:
+                    hours_pending = (datetime.now(timezone.utc) - pending_time).total_seconds() / 3600
+                    time_text = f"({int(hours_pending)}h SIN RESPUESTA)"
+                else:
+                    time_text = ""
+                
+                summary_parts.append(f"{urgency_text} - {patient_name} {time_text}")
+                if last_message:
+                    summary_parts.append(f"   💬 \"{last_message}\"")
+                summary_parts.append("")
+        
+        # Summary statistics
+        total_patients = len(patient_summaries)
+        total_pending = len(pending_conversations)
+        total_urgent_pending = len(urgent_pending)
+        
+        summary_parts.append("📈 RESUMEN DEL DÍA:")
+        summary_parts.append(f"• {total_patients} pacientes atendidos")
+        summary_parts.append(f"• {total_pending} mensajes pendientes de respuesta")
+        if total_urgent_pending > 0:
+            summary_parts.append(f"• ⚠️ {total_urgent_pending} mensajes URGENTES sin responder")
+        summary_parts.append("")
+        
+        # Action items
+        if total_urgent_pending > 0 or total_pending > 5:
+            summary_parts.append("⚡ ACCIONES REQUERIDAS:")
+            if total_urgent_pending > 0:
+                summary_parts.append("• 🔴 PRIORIDAD: Responder mensajes urgentes inmediatamente")
+            if total_pending > 5:
+                summary_parts.append("• 📞 Considerar llamada telefónica para mensajes pendientes")
+        
+        final_summary = "\n".join(summary_parts)
         
         # Save summary to database
         whatsapp_summary = WhatsAppSummary(
             date=start_date,
-            total_conversations=summary_data["total_conversations"],
-            new_conversations=summary_data["new_conversations"],
-            urgent_conversations=summary_data["urgent_conversations"],
-            appointments_confirmed=summary_data["appointments_confirmed"],
-            appointments_cancelled=summary_data["appointments_cancelled"],
-            consents_sent=summary_data["consents_sent"],
-            consents_accepted=summary_data["consents_accepted"],
-            ai_automations_triggered=summary_data["ai_automations_triggered"],
-            top_concerns=summary_data["top_concerns"],
-            summary_text=summary_data["summary_text"]
+            total_conversations=total_patients,
+            new_conversations=len([c for c in conversations if "nueva" in c.get("status_description", "").lower()]),
+            urgent_conversations=len([c for c in conversations if c.get("urgency_color") in ["red", "black"]]),
+            summary_text=final_summary
         )
         
         await db.whatsapp_summaries.insert_one(prepare_for_mongo(whatsapp_summary.dict()))
         
-        return summary_data
+        return {
+            "date": target_date.strftime("%d/%m/%Y"),
+            "summary_text": final_summary,
+            "total_patients": total_patients,
+            "total_pending": total_pending,
+            "urgent_pending": total_urgent_pending,
+            "patient_details": patient_summaries
+        }
         
     except Exception as e:
-        logging.error(f"Error generating WhatsApp summary: {str(e)}")
+        logging.error(f"Error generating qualitative WhatsApp summary: {str(e)}")
         return None
 
 async def send_daily_whatsapp_summary():
