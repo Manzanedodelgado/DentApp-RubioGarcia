@@ -10,7 +10,8 @@ const VoiceAssistantWidget = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   
-  const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
 
   useEffect(() => {
     // Initialize voice recognition
