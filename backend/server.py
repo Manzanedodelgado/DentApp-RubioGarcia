@@ -1125,6 +1125,319 @@ async def get_treatment_codes():
         for code, info in TREATMENT_CODES.items()
     ]
 
+# Create default consent message templates
+async def create_default_consent_message_templates():
+    """Create default consent message templates if they don't exist"""
+    
+    default_templates = [
+        {
+            "template_name": "Recordatorio de Cita con Botones",
+            "template_type": "appointment_confirmation",
+            "message_text": """🦷 RECORDATORIO DE CITA - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+📅 Fecha: {day_name} {date}
+🕐 Hora: {time}
+👨‍⚕️ Doctor: {doctor}
+🩺 Tratamiento: {treatment}
+
+📍 Calle Mayor 19, Alcorcón
+📞 916 410 841 | 📱 664 218 253
+
+Por favor, confirme su asistencia:""",
+            "variables": ["patient_name", "day_name", "date", "time", "doctor", "treatment"],
+            "is_active": True,
+            "treatment_code": None
+        },
+        {
+            "template_name": "Consentimiento Informado - Periodoncia", 
+            "template_type": "consent_form",
+            "message_text": """🦷 CONSENTIMIENTO INFORMADO - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+🩺 Tratamiento: {treatment_name}
+
+📋 Adjunto encontrará el consentimiento informado para su tratamiento de {treatment_name}.
+
+Por favor, lea detenidamente el documento y responda:""",
+            "variables": ["patient_name", "treatment_name"],
+            "is_active": True,
+            "treatment_code": 9
+        },
+        {
+            "template_name": "Consentimiento Informado - Cirugía e Implantes",
+            "template_type": "consent_form", 
+            "message_text": """🦷 CONSENTIMIENTO INFORMADO - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+🩺 Tratamiento: {treatment_name}
+
+📋 Adjunto encontrará el consentimiento informado para su tratamiento de {treatment_name}.
+
+Por favor, lea detenidamente el documento y responda:""",
+            "variables": ["patient_name", "treatment_name"],
+            "is_active": True,
+            "treatment_code": 10
+        },
+        {
+            "template_name": "Consentimiento Informado - Ortodoncia",
+            "template_type": "consent_form",
+            "message_text": """🦷 CONSENTIMIENTO INFORMADO - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+🩺 Tratamiento: {treatment_name}
+
+📋 Adjunto encontrará el consentimiento informado para su tratamiento de {treatment_name}.
+
+Por favor, lea detenidamente el documento y responda:""",
+            "variables": ["patient_name", "treatment_name"],
+            "is_active": True,
+            "treatment_code": 11
+        },
+        {
+            "template_name": "Consentimiento Informado - Endodoncia",
+            "template_type": "consent_form",
+            "message_text": """🦷 CONSENTIMIENTO INFORMADO - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+🩺 Tratamiento: {treatment_name}
+
+📋 Adjunto encontrará el consentimiento informado para su tratamiento de {treatment_name}.
+
+Por favor, lea detenidamente el documento y responda:""",
+            "variables": ["patient_name", "treatment_name"],
+            "is_active": True,
+            "treatment_code": 16
+        },
+        {
+            "template_name": "Documento LOPD - Primera Visita",
+            "template_type": "lopd_consent",
+            "message_text": """🦷 PROTECCIÓN DE DATOS - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+
+📋 Como es su primera visita, necesitamos su consentimiento para el tratamiento de sus datos personales según la LOPD.
+
+Adjunto encontrará el documento informativo.""",
+            "variables": ["patient_name"],
+            "is_active": True,
+            "treatment_code": 13
+        },
+        {
+            "template_name": "Encuesta Primera Visita",
+            "template_type": "survey_invite",
+            "message_text": """🦷 ENCUESTA PRIMERA VISITA - RUBIO GARCÍA DENTAL
+
+👤 Paciente: {patient_name}
+
+Para brindarle la mejor atención, por favor complete esta breve encuesta:
+
+1️⃣ ¿Cuál es el motivo principal de su consulta?
+2️⃣ ¿Siente dolor actualmente? (1-10)
+3️⃣ ¿Tiene alguna alergia conocida?
+4️⃣ ¿Toma algún medicamento actualmente?
+
+Responda con un mensaje describiendo cada punto.""",
+            "variables": ["patient_name"],
+            "is_active": True,
+            "treatment_code": None
+        }
+    ]
+    
+    for template_data in default_templates:
+        # Check if template already exists
+        existing_template = await db.consent_message_templates.find_one({
+            "template_name": template_data["template_name"]
+        })
+        
+        if not existing_template:
+            template = ConsentMessageTemplate(**template_data)
+            await db.consent_message_templates.insert_one(prepare_for_mongo(template.dict()))
+            logging.info(f"Created default consent message template: {template_data['template_name']}")
+
+# Create default consent message settings
+async def create_default_consent_message_settings():
+    """Create default consent message settings"""
+    
+    default_settings = [
+        {
+            "setting_name": "auto_send_reminders",
+            "setting_value": True,
+            "description": "Enviar recordatorios automáticos de citas 24 horas antes",
+            "category": "consent_messages"
+        },
+        {
+            "setting_name": "consent_follow_up_delay",
+            "setting_value": 2,
+            "description": "Horas de espera antes de crear tarea de seguimiento si no responde consentimiento",
+            "category": "consent_messages"
+        },
+        {
+            "setting_name": "survey_auto_send",
+            "setting_value": True,
+            "description": "Enviar encuesta automáticamente a pacientes de primera visita",
+            "category": "consent_messages"
+        },
+        {
+            "setting_name": "lopd_required_first_visit",
+            "setting_value": True,
+            "description": "Requerir LOPD automáticamente en primera visita",
+            "category": "consent_messages"
+        }
+    ]
+    
+    for setting_data in default_settings:
+        existing_setting = await db.consent_message_settings.find_one({
+            "setting_name": setting_data["setting_name"]
+        })
+        
+        if not existing_setting:
+            setting = ConsentMessageSettings(**setting_data)
+            await db.consent_message_settings.insert_one(prepare_for_mongo(setting.dict()))
+            logging.info(f"Created default consent message setting: {setting_data['setting_name']}")
+
+# Consent Message Template Routes
+@api_router.get("/consent-message-templates")
+async def get_consent_message_templates(template_type: Optional[str] = None, is_active: Optional[bool] = None):
+    """Get all consent message templates with optional filtering"""
+    try:
+        filter_query = {}
+        if template_type:
+            filter_query["template_type"] = template_type
+        if is_active is not None:
+            filter_query["is_active"] = is_active
+        
+        templates = await db.consent_message_templates.find(filter_query).sort("template_name", 1).to_list(100)
+        return [ConsentMessageTemplate(**parse_from_mongo(template)) for template in templates]
+        
+    except Exception as e:
+        logging.error(f"Error fetching consent message templates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching templates")
+
+@api_router.post("/consent-message-templates")
+async def create_consent_message_template(template: ConsentMessageTemplate):
+    """Create a new consent message template"""
+    try:
+        # Check if template name already exists
+        existing_template = await db.consent_message_templates.find_one({
+            "template_name": template.template_name
+        })
+        
+        if existing_template:
+            raise HTTPException(status_code=400, detail="Template name already exists")
+        
+        await db.consent_message_templates.insert_one(prepare_for_mongo(template.dict()))
+        return {"message": "Template created successfully", "template_id": template.id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating consent message template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating template")
+
+@api_router.put("/consent-message-templates/{template_id}")
+async def update_consent_message_template(template_id: str, update_data: dict):
+    """Update a consent message template"""
+    try:
+        update_fields = {k: v for k, v in update_data.items() if v is not None}
+        update_fields["updated_at"] = datetime.now(timezone.utc)
+        
+        result = await db.consent_message_templates.update_one(
+            {"id": template_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Template not found")
+            
+        return {"message": "Template updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating consent message template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating template")
+
+@api_router.delete("/consent-message-templates/{template_id}")
+async def delete_consent_message_template(template_id: str):
+    """Delete a consent message template"""
+    try:
+        result = await db.consent_message_templates.delete_one({"id": template_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Template not found")
+            
+        return {"message": "Template deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting consent message template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error deleting template")
+
+@api_router.post("/consent-message-templates/{template_id}/toggle")
+async def toggle_consent_message_template(template_id: str):
+    """Toggle active status of a consent message template"""
+    try:
+        # Get current template
+        template = await db.consent_message_templates.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Toggle active status
+        new_status = not template.get("is_active", True)
+        
+        result = await db.consent_message_templates.update_one(
+            {"id": template_id},
+            {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        return {
+            "message": f"Template {'activated' if new_status else 'deactivated'} successfully",
+            "is_active": new_status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error toggling consent message template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error toggling template")
+
+@api_router.get("/consent-message-settings")
+async def get_consent_message_settings():
+    """Get all consent message settings"""
+    try:
+        settings = await db.consent_message_settings.find({}).to_list(100)
+        return [ConsentMessageSettings(**parse_from_mongo(setting)) for setting in settings]
+        
+    except Exception as e:
+        logging.error(f"Error fetching consent message settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching settings")
+
+@api_router.put("/consent-message-settings/{setting_name}")
+async def update_consent_message_setting(setting_name: str, update_data: dict):
+    """Update a consent message setting"""
+    try:
+        setting_value = update_data.get("setting_value")
+        if setting_value is None:
+            raise HTTPException(status_code=400, detail="setting_value is required")
+        
+        result = await db.consent_message_settings.update_one(
+            {"setting_name": setting_name},
+            {"$set": {"setting_value": setting_value, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Setting not found")
+            
+        return {"message": "Setting updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating consent message setting: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating setting")
+
 # Consent Template Routes  
 @api_router.post("/consent-templates", response_model=ConsentTemplate)
 async def create_consent_template(template: dict):
