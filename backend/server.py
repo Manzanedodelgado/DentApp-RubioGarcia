@@ -91,6 +91,10 @@ async def lifespan(app: FastAPI):
     # Create default AI-powered automations
     await create_default_ai_automations()
     
+    # Create default user permissions and users
+    await create_default_permissions()
+    await create_default_users()
+    
     # Start background tasks
     start_scheduler()
     await initialize_default_consent_templates()
