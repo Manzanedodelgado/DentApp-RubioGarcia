@@ -2218,6 +2218,302 @@ async def send_whatsapp_consent(reminder_data: WhatsAppReminder):
         logger.error(f"Error sending WhatsApp consent: {str(e)}")
         raise HTTPException(status_code=500, detail="Error sending WhatsApp consent")
 
+# WhatsApp Interactive Button Response Routes
+@api_router.post("/whatsapp/button-response")
+async def handle_button_response(response: ButtonResponse):
+    """Handle WhatsApp button responses (appointments, consents, etc.)"""
+    try:
+        # Log the button response
+        await db.button_responses.insert_one(prepare_for_mongo(response.dict()))
+        
+        reply_message = ""
+        task_created = False
+        
+        # Handle appointment-related buttons
+        if response.button_id in ['confirm_appointment', 'cancel_appointment', 'reschedule_appointment']:
+            reply_message, task_created = await handle_appointment_response(response)
+        
+        # Handle consent-related buttons
+        elif response.button_id in ['consent_accept', 'consent_explain', 'lopd_accept', 'lopd_info']:
+            reply_message, task_created = await handle_consent_response(response)
+        
+        return {
+            "success": True,
+            "reply_message": reply_message,
+            "task_created": task_created
+        }
+        
+    except Exception as e:
+        logging.error(f"Error handling button response: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing button response")
+
+@api_router.post("/whatsapp/send-consent")
+async def send_consent_form(consent_data: dict):
+    """Send consent form with interactive buttons"""
+    try:
+        phone_number = consent_data.get("phone_number")
+        patient_name = consent_data.get("patient_name")
+        treatment_code = consent_data.get("treatment_code")
+        consent_type = consent_data.get("consent_type", "treatment")
+        
+        # Get WhatsApp service URL
+        whatsapp_url = "http://localhost:3001"
+        
+        # Prepare consent data for WhatsApp service
+        consent_payload = {
+            "phone_number": phone_number,
+            "consent_data": {
+                "patient_name": patient_name,
+                "treatment_name": TREATMENT_CODES.get(treatment_code, {}).get("name", "Tratamiento"),
+                "consent_type": consent_type,
+                "pdf_path": f"/app/documents/consent_{consent_type}_{treatment_code}.pdf"
+            }
+        }
+        
+        # Send via WhatsApp service
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{whatsapp_url}/send-consent", json=consent_payload)
+            
+        if response.status_code == 200:
+            # Create consent delivery record
+            consent_delivery = ConsentDelivery(
+                appointment_id=consent_data.get("appointment_id", ""),
+                consent_template_id=consent_data.get("template_id", ""),
+                patient_name=patient_name,
+                patient_phone=phone_number,
+                treatment_code=treatment_code,
+                treatment_name=TREATMENT_CODES.get(treatment_code, {}).get("name", "Tratamiento"),
+                scheduled_date=datetime.now(timezone.utc),
+                delivery_status="sent",
+                sent_at=datetime.now(timezone.utc)
+            )
+            
+            await db.consent_deliveries.insert_one(prepare_for_mongo(consent_delivery.dict()))
+            
+            return {"success": True, "message": "Consent form sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send consent form")
+            
+    except Exception as e:
+        logging.error(f"Error sending consent form: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending consent form")
+
+@api_router.post("/whatsapp/send-survey")
+async def send_first_visit_survey(survey_data: dict):
+    """Send first visit survey to patient"""
+    try:
+        phone_number = survey_data.get("phone_number")
+        patient_name = survey_data.get("patient_name")
+        
+        # Get WhatsApp service URL
+        whatsapp_url = "http://localhost:3001"
+        
+        # Prepare survey data for WhatsApp service
+        survey_payload = {
+            "phone_number": phone_number,
+            "patient_data": {
+                "patient_name": patient_name
+            }
+        }
+        
+        # Send via WhatsApp service
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{whatsapp_url}/send-survey", json=survey_payload)
+            
+        if response.status_code == 200:
+            # Create dashboard task to track survey response
+            survey_task = DashboardTask(
+                task_type="survey_review",
+                patient_name=patient_name,
+                patient_phone=phone_number,
+                description=f"Encuesta primera visita enviada a {patient_name}",
+                priority="medium",
+                color_code="yellow",
+                status="pending"
+            )
+            
+            await db.dashboard_tasks.insert_one(prepare_for_mongo(survey_task.dict()))
+            
+            return {"success": True, "message": "Survey sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send survey")
+            
+    except Exception as e:
+        logging.error(f"Error sending survey: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending survey")
+
+# Helper functions for button responses
+async def handle_appointment_response(response: ButtonResponse):
+    """Handle appointment confirmation/cancellation/rescheduling buttons"""
+    reply_message = ""
+    task_created = False
+    
+    try:
+        # Find appointment by phone number
+        appointments = await db.appointments.find({"phone": response.phone_number}).to_list(10)
+        if not appointments:
+            return "No encontramos citas asociadas a este teléfono.", False
+        
+        # Get the most recent future appointment
+        current_appointment = None
+        for apt in appointments:
+            apt_date = datetime.fromisoformat(apt["date"].replace("Z", "+00:00"))
+            if apt_date > datetime.now(timezone.utc):
+                current_appointment = apt
+                break
+        
+        if not current_appointment:
+            return "No tiene citas futuras para modificar.", False
+        
+        if response.button_id == 'confirm_appointment':
+            # Update appointment status to confirmed
+            await db.appointments.update_one(
+                {"id": current_appointment["id"]},
+                {"$set": {"status": "confirmed", "updated_at": datetime.now(timezone.utc)}}
+            )
+            reply_message = "✅ Su cita ha sido confirmada correctamente. ¡Le esperamos!"
+            
+        elif response.button_id == 'cancel_appointment':
+            # Update appointment status to cancelled
+            await db.appointments.update_one(
+                {"id": current_appointment["id"]},
+                {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc)}}
+            )
+            reply_message = "❌ Su cita ha sido cancelada. ¿Desea reprogramar? Responda:\n🔍 BUSCAR CITA - Para nueva cita\n📞 CONTACTAR DESPUÉS - Para contacto posterior"
+            
+        elif response.button_id == 'reschedule_appointment':
+            # Create task for staff to reschedule
+            reschedule_task = DashboardTask(
+                task_type="reschedule_request",
+                patient_name=current_appointment.get("contact_name", "Paciente"),
+                patient_phone=response.phone_number,
+                description=f"Solicitud de reprogramación - {current_appointment.get('treatment', 'Cita')}",
+                priority="medium",
+                color_code="yellow",
+                status="pending"
+            )
+            
+            await db.dashboard_tasks.insert_one(prepare_for_mongo(reschedule_task.dict()))
+            task_created = True
+            reply_message = "📅 Su solicitud de reprogramación ha sido registrada. Nuestro equipo se contactará con usted pronto."
+            
+        return reply_message, task_created
+        
+    except Exception as e:
+        logging.error(f"Error handling appointment response: {str(e)}")
+        return "Error procesando su respuesta. Contacte al 916 410 841.", False
+
+async def handle_consent_response(response: ButtonResponse):
+    """Handle consent form responses"""
+    reply_message = ""
+    task_created = False
+    
+    try:
+        if response.button_id == 'consent_accept':
+            # Record consent acceptance
+            consent_response = ConsentResponse(
+                patient_id=response.phone_number,
+                patient_name="Paciente",  # Should be retrieved from contact database
+                treatment_code=0,  # Should be retrieved from context
+                consent_type="treatment",
+                response="accepted"
+            )
+            
+            await db.consent_responses.insert_one(prepare_for_mongo(consent_response.dict()))
+            reply_message = "✅ Su consentimiento ha sido registrado correctamente. Gracias por su confianza en nuestro equipo."
+            
+        elif response.button_id == 'consent_explain':
+            # Create task for staff to explain treatment
+            explanation_task = DashboardTask(
+                task_type="consent_follow_up",
+                patient_name="Paciente",  # Should be retrieved from contact database
+                patient_phone=response.phone_number,
+                description="Paciente solicita explicación adicional del consentimiento informado",
+                priority="high",
+                color_code="red",
+                status="pending"
+            )
+            
+            await db.dashboard_tasks.insert_one(prepare_for_mongo(explanation_task.dict()))
+            task_created = True
+            reply_message = "👨‍⚕️ Hemos registrado su solicitud. Nuestro equipo médico se contactará para explicarle el tratamiento detalladamente."
+            
+        elif response.button_id == 'lopd_accept':
+            # Record LOPD acceptance
+            lopd_response = ConsentResponse(
+                patient_id=response.phone_number,
+                patient_name="Paciente",
+                treatment_code=13,
+                consent_type="lopd",
+                response="accepted"
+            )
+            
+            await db.consent_responses.insert_one(prepare_for_mongo(lopd_response.dict()))
+            reply_message = "✅ Su consentimiento para el tratamiento de datos ha sido registrado según la LOPD. Sus datos están protegidos."
+            
+        elif response.button_id == 'lopd_info':
+            # Create task for staff to provide LOPD information
+            lopd_task = DashboardTask(
+                task_type="consent_follow_up",
+                patient_name="Paciente",
+                patient_phone=response.phone_number,
+                description="Paciente solicita más información sobre LOPD",
+                priority="medium",
+                color_code="yellow",
+                status="pending"
+            )
+            
+            await db.dashboard_tasks.insert_one(prepare_for_mongo(lopd_task.dict()))
+            task_created = True
+            reply_message = "📞 Nuestro equipo le proporcionará información detallada sobre el tratamiento de sus datos personales."
+            
+        return reply_message, task_created
+        
+    except Exception as e:
+        logging.error(f"Error handling consent response: {str(e)}")
+        return "Error procesando su respuesta. Contacte al 916 410 841.", False
+
+# Dashboard Tasks Routes
+@api_router.get("/dashboard/tasks")
+async def get_dashboard_tasks(status: Optional[str] = None, priority: Optional[str] = None):
+    """Get dashboard tasks for staff follow-up"""
+    try:
+        filter_query = {}
+        if status:
+            filter_query["status"] = status
+        if priority:
+            filter_query["priority"] = priority
+            
+        tasks = await db.dashboard_tasks.find(filter_query).sort("created_at", -1).to_list(100)
+        return [DashboardTask(**parse_from_mongo(task)) for task in tasks]
+        
+    except Exception as e:
+        logging.error(f"Error fetching dashboard tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching tasks")
+
+@api_router.put("/dashboard/tasks/{task_id}")
+async def update_dashboard_task(task_id: str, update_data: dict):
+    """Update dashboard task status and notes"""
+    try:
+        update_fields = {k: v for k, v in update_data.items() if v is not None}
+        update_fields["created_at"] = datetime.now(timezone.utc)  # Track last update
+        
+        result = await db.dashboard_tasks.update_one(
+            {"id": task_id},
+            {"$set": update_fields}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Task not found")
+            
+        return {"message": "Task updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating task: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating task")
+
 # Settings Routes
 @api_router.get("/settings/clinic")
 async def get_clinic_settings():
