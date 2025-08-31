@@ -87,6 +87,9 @@ async def lifespan(app: FastAPI):
     # Create default consent message settings
     await create_default_consent_message_settings()
     
+    # Create default AI-powered automations
+    await create_default_ai_automations()
+    
     # Start background tasks
     start_scheduler()
     await initialize_default_consent_templates()
