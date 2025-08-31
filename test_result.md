@@ -58,17 +58,20 @@
 ##
 ## agent_communication:
 ##    - agent: "main"
-##    - message: "Completed major dashboard enhancement with integrated calendar, detailed pending message summaries, statistics charts, user management system, and current date defaults. Dashboard now shows: 1) Calendar component for date navigation, 2) Daily appointments with patient details, 3) Pie charts for message/appointment statistics, 4) Enhanced pending conversations with tabbed interface showing Messages and Tasks with detailed summaries, 5) User management with role-based permissions, 6) All date fields default to current date. Ready for backend testing."
+##    - message: "Starting comprehensive deep testing of all implemented features: Dashboard calendar, WhatsApp messaging, user management, voice assistant, communications interface, and bidirectional sync. Will perform exhaustive backend testing first, then detailed frontend validation with edge cases and error handling."
 
 ## test_plan:
 ##  current_focus:
-##    - "Enhanced Dashboard with Calendar and Statistics"
-##    - "Enhanced Pending Messages with Detailed Summaries"
-##    - "User Management System"
-##    - "Default Current Date for Date Fields"
+##    - "Comprehensive System Testing - All Components"
+##    - "Dashboard Calendar with September 2025 Dates"
+##    - "WhatsApp Messaging and Conversations"
+##    - "User Management and Permissions"  
+##    - "Voice Assistant Functionality"
+##    - "Recordatorios with Select All"
+##    - "Bidirectional Data Flow"
 ##  stuck_tasks: []
-##  test_all: false
-##  test_priority: "high_first"
+##  test_all: true
+##  test_priority: "comprehensive_validation"
 
 # Protocol Guidelines for Main agent
 #
