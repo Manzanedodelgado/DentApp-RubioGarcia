@@ -3468,30 +3468,3 @@ async def create_default_consent_templates():
     except Exception as e:
         logging.error(f"Error creating default consent templates: {str(e)}")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    logging.info("Starting up...")
-    
-    # Initialize database collections
-    await init_database_collections()
-    
-    # Create default consent templates
-    await create_default_consent_templates()
-    
-    # Create default consent message templates 
-    await create_default_consent_message_templates()
-    
-    # Create default consent message settings
-    await create_default_consent_message_settings()
-    
-    # Start background tasks
-    start_scheduler()
-    await initialize_default_consent_templates()
-    
-    yield
-    
-    # Shutdown
-    logging.info("Shutting down...")
-    stop_scheduler()
-    client.close()
