@@ -4431,6 +4431,22 @@ class OmniDeskAPITester:
             print("❌ CRITICAL: Bidirectional Google Sheets sync tests failed")
             return 1
         
+        # NEW FEATURES TESTING - Daily Summary and User Permissions
+        print("\n🎯 NEW FEATURES: DAILY WHATSAPP SUMMARY SYSTEM")
+        if not self.test_daily_whatsapp_summary_system():
+            print("❌ CRITICAL: Daily WhatsApp Summary System tests failed")
+            return 1
+        
+        print("\n🎯 NEW FEATURES: USER PERMISSIONS SYSTEM")
+        if not self.test_user_permissions_system():
+            print("❌ CRITICAL: User Permissions System tests failed")
+            return 1
+        
+        print("\n🎯 NEW FEATURES: INTEGRATION TESTING")
+        if not self.test_integration_features():
+            print("❌ CRITICAL: Integration features tests failed")
+            return 1
+        
         # PRIMARY FOCUS: Count exact rows in Google Sheet
         print("\n🎯 PRIMARY FOCUS: COUNT EXACT ROWS IN GOOGLE SHEET")
         if not self.test_count_exact_google_sheet_rows():
