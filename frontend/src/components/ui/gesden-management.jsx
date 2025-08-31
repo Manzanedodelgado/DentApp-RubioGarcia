@@ -7,7 +7,8 @@ import { AlertCircle, CheckCircle, Clock, Database, FileText, Phone, User, Calen
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const API = import.meta.env.VITE_API_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const GesdenManagement = () => {
   const [gesdenStatus, setGesdenStatus] = useState(null);
