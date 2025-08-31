@@ -2995,6 +2995,7 @@ function MainDashboard() {
     { id: "messages", label: "WhatsApp IA", icon: MessageCircle },
     { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "consents", label: "Consentimientos", icon: FileText },
+    { id: "automations", label: "Automatizaciones IA", icon: Bot },
     { id: "gesden", label: "Gestión Gesden", icon: Database },
     { id: "settings", label: "Configuración", icon: Settings }
   ];
