@@ -150,34 +150,54 @@ const WhatsAppManager = () => {
         </div>
       </div>
 
-      {/* QR Code Section */}
-      {qrCode && (
+      {/* QR Code Section - Always show when not connected */}
+      {!status.connected && (
         <div className="bg-white p-6 rounded-lg shadow border text-center">
           <div className="flex items-center justify-center mb-4">
             <QrCode className="w-6 h-6 text-green-600 mr-2" />
             <h3 className="text-lg font-semibold">Conectar WhatsApp</h3>
           </div>
           
-          <div className="flex justify-center mb-4">
-            <QRCodeSVG 
-              value={qrCode} 
-              size={256}
-              bgColor="#FFFFFF"
-              fgColor="#000000"
-              level="M"
-              includeMargin={true}
-            />
-          </div>
-          
-          <div className="text-sm text-gray-600 space-y-2">
-            <p><strong>Pasos para conectar:</strong></p>
-            <ol className="text-left max-w-md mx-auto space-y-1">
-              <li>1. Abra WhatsApp en su teléfono</li>
-              <li>2. Toque Menú ⋮ → Dispositivos vinculados</li>
-              <li>3. Toque "Vincular un dispositivo"</li>
-              <li>4. Escanee este código QR</li>
-            </ol>
-          </div>
+          {qrCode ? (
+            <>
+              <div className="flex justify-center mb-4">
+                <QRCodeSVG 
+                  value={qrCode} 
+                  size={256}
+                  bgColor="#FFFFFF"
+                  fgColor="#000000"
+                  level="M"
+                  includeMargin={true}
+                />
+              </div>
+              
+              <div className="text-sm text-gray-600 space-y-2">
+                <p><strong>Pasos para conectar:</strong></p>
+                <ol className="text-left max-w-md mx-auto space-y-1">
+                  <li>1. Abra WhatsApp en su teléfono</li>
+                  <li>2. Toque Menú ⋮ → Dispositivos vinculados</li>
+                  <li>3. Toque "Vincular un dispositivo"</li>
+                  <li>4. Escanee este código QR</li>
+                </ol>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              </div>
+              <p className="text-gray-600">Generando código QR...</p>
+              <p className="text-sm text-gray-500">
+                Si el código no aparece, verifique que el servicio de WhatsApp esté funcionando correctamente.
+              </p>
+              <button
+                onClick={fetchQRCode}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Regenerar Código QR
+              </button>
+            </div>
+          )}
         </div>
       )}
 
