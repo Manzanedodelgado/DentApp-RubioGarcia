@@ -361,17 +361,60 @@ class AISettings(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# AI-Powered Automation System Models
 class AutomationRule(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: str
-    trigger_type: str  # "appointment_day_before", "new_appointment", "surgery_reminder"
-    trigger_time: str = "16:00"  # Format: HH:MM
-    enabled: bool = True
-    template_id: str
-    conditions: Dict[str, Any] = {}
+    category: str  # 'patient_communication', 'appointment_management', 'consent_management', 'follow_up', 'triage'
+    trigger_type: str  # 'time_based', 'event_based', 'condition_based', 'ai_decision'
+    trigger_config: Dict[str, Any] = Field(default_factory=dict)
+    conditions: List[Dict[str, Any]] = Field(default_factory=list)
+    actions: List[Dict[str, Any]] = Field(default_factory=list)
+    ai_behavior: Optional[Dict[str, Any]] = None  # AI training configuration
+    is_active: bool = True
+    priority: int = 1  # 1-10, higher number = higher priority
+    dependencies: List[str] = Field(default_factory=list)  # IDs of automations this depends on
+    conflicts_with: List[str] = Field(default_factory=list)  # IDs of automations this conflicts with
+    success_count: int = 0
+    failure_count: int = 0
+    last_execution: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = "admin"
+
+class AITrainingData(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    automation_id: str
+    training_prompt: str
+    example_inputs: List[Dict[str, Any]] = Field(default_factory=list)
+    expected_outputs: List[Dict[str, Any]] = Field(default_factory=list)
+    model_parameters: Dict[str, Any] = Field(default_factory=dict)
+    training_status: str = "pending"  # 'pending', 'training', 'completed', 'failed'
+    performance_metrics: Dict[str, float] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AutomationExecution(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    automation_id: str
+    trigger_data: Dict[str, Any] = Field(default_factory=dict)
+    execution_status: str = "pending"  # 'pending', 'running', 'completed', 'failed', 'skipped'
+    execution_result: Dict[str, Any] = Field(default_factory=dict)
+    ai_decision: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    execution_time_ms: Optional[int] = None
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: Optional[datetime] = None
+
+class AutomationDependency(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    parent_automation_id: str
+    dependent_automation_id: str
+    dependency_type: str  # 'prerequisite', 'conditional', 'sequential', 'exclusive'
+    dependency_config: Dict[str, Any] = Field(default_factory=dict)
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Google Sheets Sync Models
 class AppointmentUpdate(BaseModel):
