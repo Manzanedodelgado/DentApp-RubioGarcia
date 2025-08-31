@@ -105,6 +105,53 @@
 user_problem_statement: "El dashboard no muestra lo que solicité. Necesito que se muestren los mensajes pendientes de contestar y las urgencias con un pequeño resumen de cada uno. Además, mostrar calendario para que cuando pinche en un día se desplieguen las citas del día con datos básicos. Todos los campos de fecha quiero que marquen por defecto el día en curso. No es posible conectar mi número a WhatsApp. El micrófono para hablar con la IA no funciona. No veo nada para gestionar los accesos. En el dashboard generar diagramas sectoriales para ver estadísticas de los mensajes con pacientes con % de citas confirmadas, media de respuesta de mensajes."
 
 backend:
+  - task: "Enhanced Dashboard with Calendar and Statistics"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Implemented enhanced dashboard with integrated calendar component, daily appointments view, statistics charts with pie charts for message and appointment status. Added proper backend endpoints for dashboard stats, pending conversations, and dashboard tasks. Calendar shows current month by default and allows date selection to view appointments for specific days."
+
+  - task: "Enhanced Pending Messages with Detailed Summaries"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Enhanced PendingConversations component with tabbed interface for Messages and Tasks. Added detailed summaries with patient names, descriptions, timestamps, urgency levels, and priority indicators. Implemented color-coded urgency system with URGENTE/ALTA/MEDIA/BAJA labels and proper action buttons for resolving conversations and completing tasks."
+
+  - task: "User Management System"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/App.js, backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Created comprehensive UserManagement component with CRUD operations for users, role-based permissions (admin, staff, viewer, readonly), permission categories (read, write, admin), and visual user interface. Added Users navigation item and integrated with existing backend user system. Provides granular permission control with checkbox interface."
+
+  - task: "Default Current Date for Date Fields"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+        - agent: "main"
+        - comment: "Updated all date field initializations to use current date by default instead of hardcoded dates. Fixed Agenda component to start with current date rather than January 1, 2025. Dashboard calendar and appointment selectors now default to today's date."
   - task: "WhatsApp Interactive Consent System Implementation"
     implemented: true
     working: true
