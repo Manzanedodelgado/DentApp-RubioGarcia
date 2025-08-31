@@ -327,21 +327,6 @@ class WhatsAppReminder(BaseModel):
     appointment_data: Dict[str, Any]
 
 # Conversation Status Models
-class ConversationStatus(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    contact_id: str
-    contact_name: str
-    last_message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    pain_level: Optional[int] = None
-    urgency_color: str = "gray"  # gray, red, black, yellow
-    status_description: str = "Nueva conversación"
-    pending_response: bool = True
-    assigned_doctor: Optional[str] = None
-    specialty_needed: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
 # WhatsApp Interactive Button Response Models
 class ButtonResponse(BaseModel):
     phone_number: str
