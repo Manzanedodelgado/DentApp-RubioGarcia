@@ -84,9 +84,23 @@ def send_to_google_sheets(data):
             datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Timestamp de inserción
         ]
         
-        # Agregar fila al final de la hoja
-        sheet.append_row(row_data)
-        log_message(f"✅ Google Sheets: Registro {data['Registro']} enviado correctamente")
+        # LÓGICA DEL ROUTER DE MAKE.COM: Nueva vs Modificada
+        fecha_alta = data.get('FechaAlta', '')
+        fecha_modificacion = data.get('CitMod', '')
+        
+        if fecha_alta == fecha_modificacion:
+            # CITA NUEVA - Añadir fila nueva
+            sheet.append_row(row_data)
+            log_message(f"✅ Google Sheets: Registro {data['Registro']} AÑADIDO como nueva cita")
+        else:
+            # CITA MODIFICADA - Buscar y actualizar fila existente
+            if update_existing_row(sheet, data['Registro'], row_data):
+                log_message(f"✅ Google Sheets: Registro {data['Registro']} ACTUALIZADO en fila existente")
+            else:
+                # Si no encuentra la fila, la añade como nueva (fallback)
+                sheet.append_row(row_data)
+                log_message(f"✅ Google Sheets: Registro {data['Registro']} AÑADIDO (no encontrado para actualizar)")
+        
         return True
         
     except Exception as e:
