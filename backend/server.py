@@ -917,16 +917,16 @@ async def update_conversation_status(conversation_id: str, status_data: dict):
     try:
         update_fields = {}
         if "urgency_color" in status_data:
-            update_fields["urgency_color"] = status_data["urgency_color"]
-            update_fields["status_description"] = URGENCY_COLORS[status_data["urgency_color"]].description
+            update_fields["color_code"] = status_data["urgency_color"]
+            update_fields["priority"] = "high" if status_data["urgency_color"] == "red" else "medium" if status_data["urgency_color"] in ["black", "yellow"] else "low"
         if "pending_response" in status_data:
-            update_fields["pending_response"] = status_data["pending_response"]
+            update_fields["status"] = "pending" if status_data["pending_response"] else "completed"
         if "assigned_doctor" in status_data:
-            update_fields["assigned_doctor"] = status_data["assigned_doctor"]
+            update_fields["assigned_to"] = status_data["assigned_doctor"]
             
-        update_fields["updated_at"] = datetime.now(timezone.utc)
+        update_fields["created_at"] = datetime.now(timezone.utc)
         
-        result = await db.conversation_status.update_one(
+        result = await db.dashboard_tasks.update_one(
             {"id": conversation_id},
             {"$set": update_fields}
         )
