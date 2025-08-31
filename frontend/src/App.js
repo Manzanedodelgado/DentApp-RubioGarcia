@@ -716,7 +716,9 @@ const DailyAppointments = ({ selectedDate }) => {
     setLoading(true);
     try {
       const formattedDate = selectedDate.toISOString().split('T')[0];
+      console.log('Fetching appointments for date:', formattedDate);
       const response = await axios.get(`${API}/appointments/by-date?date=${formattedDate}`);
+      console.log('Appointments response:', response.data);
       setAppointments(response.data);
     } catch (error) {
       console.error("Error fetching appointments:", error);
