@@ -2733,6 +2733,30 @@ async def initialize_default_consent_templates():
     except Exception as e:
         logger.error(f"Error initializing consent templates: {str(e)}")
 
+@api_router.get("/test")
+async def test():
+    return {"message": "API is working correctly", "timestamp": datetime.now().isoformat()}
+
+@api_router.get("/health")
+async def health_check():
+    """Health check endpoint for Railway deployment"""
+    try:
+        # Test database connection
+        await db.sessions.count_documents({}, limit=1)
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "database": "connected",
+            "environment": os.environ.get("RAILWAY_ENVIRONMENT", "development")
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy", 
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
+            "database": "disconnected"
+        }
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
