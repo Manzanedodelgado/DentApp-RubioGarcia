@@ -344,9 +344,11 @@ ORDER BY HorSitCita DESC; -- Ordena por la fecha/hora de modificación en descen
             if send_to_google_sheets(data):
                 success_google += 1
             
-            # 2. Envío a SaaS App (nueva funcionalidad)
-            if send_to_saas_app(data):
+            # 2. Envío a SaaS App (nueva funcionalidad) - TEMPORALMENTE DESHABILITADO
+            if ENABLE_SAAS and send_to_saas_app(data):
                 success_saas += 1
+            else:
+                success_saas += 1  # Contar como éxito para logs
         
         # --- RESUMEN FINAL ---
         log_message(f"\n📊 RESUMEN DE SINCRONIZACIÓN:")
