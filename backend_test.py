@@ -4228,9 +4228,24 @@ class OmniDeskAPITester:
             return False
 
 def main():
-    """Main function to run the extended range doctor column verification test"""
+    """Main function to run tests"""
     tester = OmniDeskAPITester()
     
+    # Check command line arguments
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "whatsapp":
+            print("🚀 Running WhatsApp Interactive Consent System Test")
+            print("=" * 80)
+            success = tester.test_whatsapp_interactive_consent_system()
+            print(f"\n📊 Test Result: {'PASSED' if success else 'FAILED'}")
+            return 0 if success else 1
+        elif sys.argv[1] == "review":
+            print("🎯 Running Review Request Verification Test...")
+            print("=" * 80)
+            success = tester.run_review_request_test()
+            return 0 if success else 1
+    
+    # Default: run extended range verification
     print("🎯 Running Extended Range A:O Doctor Column Verification...")
     print("=" * 80)
     
