@@ -41,7 +41,9 @@ const WhatsAppManager = () => {
 
   const fetchQRCode = async () => {
     try {
+      console.log('Fetching QR code from:', `${API}/whatsapp/qr`);
       const response = await axios.get(`${API}/whatsapp/qr`);
+      console.log('QR response:', response.data);
       setQrCode(response.data.qr);
     } catch (error) {
       console.error('Error fetching QR code:', error);
