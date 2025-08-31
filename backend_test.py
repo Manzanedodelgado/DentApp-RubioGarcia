@@ -3585,6 +3585,391 @@ class OmniDeskAPITester:
             print("❌ GESDEN CONSENT MANAGEMENT SYSTEM: CRITICAL ISSUES DETECTED")
             return False
 
+    def test_ai_automation_system(self):
+        """Test the new AI-Powered Automation System"""
+        print("\n" + "="*70)
+        print("🤖 TESTING AI-POWERED AUTOMATION SYSTEM")
+        print("="*70)
+        print("Testing: Default automations, CRUD operations, dependencies, conflicts, AI training")
+        
+        # Step 1: Test default AI automations creation
+        print("\n📥 Step 1: Testing default AI automations creation...")
+        success, automations = self.run_test(
+            "Get All AI Automations",
+            "GET",
+            "ai-automations",
+            200
+        )
+        
+        if not success:
+            print("❌ CRITICAL: Cannot retrieve AI automations")
+            return False
+        
+        print(f"   📊 Total AI automations found: {len(automations)}")
+        
+        # Verify we have the expected 7 default automations
+        expected_automations = [
+            "Triaje Inteligente de Urgencias",
+            "Seguimiento Post-Cirugía", 
+            "Recordatorios Inteligentes Pre-Cita",
+            "Análisis de Satisfacción Automático",
+            "Gestión Inteligente de Cancelaciones",
+            "Consentimientos Inteligentes",
+            "Detección de Pacientes en Riesgo"
+        ]
+        
+        automation_names = [auto.get('name', '') for auto in automations]
+        found_automations = []
+        
+        for expected_name in expected_automations:
+            if expected_name in automation_names:
+                found_automations.append(expected_name)
+                print(f"   ✅ Found: {expected_name}")
+            else:
+                print(f"   ❌ Missing: {expected_name}")
+        
+        if len(found_automations) >= 7:
+            print("   ✅ DEFAULT AUTOMATIONS: All 7 expected automations found")
+        else:
+            print(f"   ❌ DEFAULT AUTOMATIONS: Only {len(found_automations)}/7 automations found")
+        
+        # Step 2: Test automation categories
+        print("\n📋 Step 2: Testing automation categories...")
+        expected_categories = ["triage", "follow_up", "appointment_management", "patient_communication", "consent_management"]
+        
+        categories_found = set()
+        for auto in automations:
+            category = auto.get('category', '')
+            if category:
+                categories_found.add(category)
+        
+        print(f"   📊 Categories found: {sorted(list(categories_found))}")
+        
+        for expected_cat in expected_categories:
+            if expected_cat in categories_found:
+                print(f"   ✅ Category: {expected_cat}")
+            else:
+                print(f"   ❌ Missing category: {expected_cat}")
+        
+        # Step 3: Test filtering by category
+        print("\n🔍 Step 3: Testing category filtering...")
+        success, triage_automations = self.run_test(
+            "Filter by Triage Category",
+            "GET",
+            "ai-automations",
+            200,
+            params={"category": "triage"}
+        )
+        
+        if success:
+            print(f"   ✅ Triage automations: {len(triage_automations)}")
+            for auto in triage_automations:
+                if auto.get('category') == 'triage':
+                    print(f"      - {auto.get('name', 'Unknown')}")
+        
+        # Step 4: Test filtering by active status
+        print("\n🔍 Step 4: Testing active status filtering...")
+        success, active_automations = self.run_test(
+            "Filter by Active Status",
+            "GET", 
+            "ai-automations",
+            200,
+            params={"is_active": "true"}
+        )
+        
+        if success:
+            active_count = len(active_automations)
+            print(f"   ✅ Active automations: {active_count}")
+            
+            # Count inactive automations
+            success, inactive_automations = self.run_test(
+                "Filter by Inactive Status",
+                "GET",
+                "ai-automations", 
+                200,
+                params={"is_active": "false"}
+            )
+            
+            if success:
+                inactive_count = len(inactive_automations)
+                print(f"   ✅ Inactive automations: {inactive_count}")
+                print(f"   📊 Total: {active_count + inactive_count} automations")
+        
+        # Step 5: Test AI behavior configuration
+        print("\n🧠 Step 5: Testing AI behavior configuration...")
+        ai_configured_count = 0
+        
+        for auto in automations:
+            ai_behavior = auto.get('ai_behavior', {})
+            if ai_behavior:
+                ai_configured_count += 1
+                model = ai_behavior.get('model', 'Unknown')
+                prompt_length = len(ai_behavior.get('prompt', ''))
+                parameters = ai_behavior.get('parameters', {})
+                
+                print(f"   🤖 {auto.get('name', 'Unknown')[:30]}...")
+                print(f"      Model: {model}")
+                print(f"      Prompt length: {prompt_length} chars")
+                print(f"      Parameters: {list(parameters.keys())}")
+        
+        print(f"   📊 Automations with AI behavior: {ai_configured_count}/{len(automations)}")
+        
+        # Step 6: Test priority system (1-10 scale)
+        print("\n⭐ Step 6: Testing priority system...")
+        priorities = [auto.get('priority', 0) for auto in automations]
+        valid_priorities = [p for p in priorities if 1 <= p <= 10]
+        
+        print(f"   📊 Priority range: {min(priorities)} to {max(priorities)}")
+        print(f"   ✅ Valid priorities (1-10): {len(valid_priorities)}/{len(priorities)}")
+        
+        if len(valid_priorities) == len(priorities):
+            print("   ✅ PRIORITY SYSTEM: All automations have valid priorities (1-10)")
+        else:
+            print("   ❌ PRIORITY SYSTEM: Some automations have invalid priorities")
+        
+        # Step 7: Test dependency system
+        print("\n🔗 Step 7: Testing dependency system...")
+        success, dependencies = self.run_test(
+            "Get Automation Dependencies",
+            "GET",
+            "ai-automations/dependencies",
+            200
+        )
+        
+        if success:
+            dependency_graph = dependencies.get('dependency_graph', {})
+            raw_dependencies = dependencies.get('raw_dependencies', [])
+            
+            print(f"   📊 Dependency relationships: {len(raw_dependencies)}")
+            print(f"   📊 Automations with dependencies: {len(dependency_graph)}")
+            
+            # Check specific dependencies mentioned in review request
+            consent_automation = None
+            risk_automation = None
+            
+            for auto in automations:
+                if auto.get('name') == 'Consentimientos Inteligentes':
+                    consent_automation = auto
+                elif auto.get('name') == 'Detección de Pacientes en Riesgo':
+                    risk_automation = auto
+            
+            if consent_automation:
+                deps = consent_automation.get('dependencies', [])
+                if 'consent_system_active' in deps:
+                    print("   ✅ Consentimientos Inteligentes depends on consent_system_active")
+                else:
+                    print("   ⚠️ Consentimientos Inteligentes dependency not found")
+            
+            if risk_automation:
+                deps = risk_automation.get('dependencies', [])
+                if 'patient_history_available' in deps:
+                    print("   ✅ Detección de Pacientes en Riesgo depends on patient_history_available")
+                else:
+                    print("   ⚠️ Detección de Pacientes en Riesgo dependency not found")
+        
+        # Step 8: Test conflict detection
+        print("\n⚠️ Step 8: Testing conflict detection...")
+        conflicts_found = 0
+        
+        for auto in automations:
+            conflicts = auto.get('conflicts_with', [])
+            if conflicts:
+                conflicts_found += 1
+                print(f"   ⚠️ {auto.get('name', 'Unknown')} conflicts with: {conflicts}")
+        
+        print(f"   📊 Automations with conflicts: {conflicts_found}")
+        
+        # Verify specific conflict mentioned in review request
+        reminder_automation = None
+        for auto in automations:
+            if auto.get('name') == 'Recordatorios Inteligentes Pre-Cita':
+                reminder_automation = auto
+                break
+        
+        if reminder_automation:
+            conflicts = reminder_automation.get('conflicts_with', [])
+            if 'standard_appointment_reminder' in conflicts:
+                print("   ✅ Recordatorios Inteligentes Pre-Cita conflicts with standard_appointment_reminder")
+            else:
+                print("   ⚠️ Expected conflict not found")
+        
+        # Step 9: Test creating new automation
+        print("\n➕ Step 9: Testing automation creation...")
+        new_automation = {
+            "name": "Test AI Automation",
+            "description": "Test automation for API testing",
+            "category": "patient_communication",
+            "trigger_type": "event_based",
+            "trigger_config": {"event": "test_event"},
+            "conditions": [{"type": "test_condition"}],
+            "actions": [{"type": "test_action"}],
+            "ai_behavior": {
+                "model": "gpt-4o-mini",
+                "prompt": "Test prompt for automation",
+                "parameters": {"temperature": 0.5}
+            },
+            "is_active": True,
+            "priority": 5,
+            "dependencies": [],
+            "conflicts_with": []
+        }
+        
+        success, create_response = self.run_test(
+            "Create New Automation",
+            "POST",
+            "ai-automations",
+            200,
+            data=new_automation
+        )
+        
+        created_automation_id = None
+        if success:
+            created_automation_id = create_response.get('automation_id')
+            print(f"   ✅ Created automation ID: {created_automation_id}")
+        
+        # Step 10: Test automation update
+        if created_automation_id:
+            print("\n✏️ Step 10: Testing automation update...")
+            update_data = {
+                "description": "Updated test automation description",
+                "priority": 7
+            }
+            
+            success, update_response = self.run_test(
+                "Update Automation",
+                "PUT",
+                f"ai-automations/{created_automation_id}",
+                200,
+                data=update_data
+            )
+            
+            if success:
+                print("   ✅ Automation updated successfully")
+        
+        # Step 11: Test automation toggle
+        if created_automation_id:
+            print("\n🔄 Step 11: Testing automation toggle...")
+            success, toggle_response = self.run_test(
+                "Toggle Automation Status",
+                "POST",
+                f"ai-automations/{created_automation_id}/toggle",
+                200
+            )
+            
+            if success:
+                new_status = toggle_response.get('is_active')
+                print(f"   ✅ Automation toggled to: {new_status}")
+        
+        # Step 12: Test AI training system
+        if created_automation_id:
+            print("\n🎓 Step 12: Testing AI training system...")
+            training_data = {
+                "training_prompt": "Enhanced training prompt for better AI responses",
+                "example_inputs": [
+                    {"input": "Patient complains about pain", "expected_urgency": "high"}
+                ],
+                "expected_outputs": [
+                    {"output": "Create high priority task", "confidence": 0.9}
+                ],
+                "model_parameters": {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.3,
+                    "max_tokens": 200
+                }
+            }
+            
+            success, training_response = self.run_test(
+                "Train AI Automation",
+                "POST",
+                f"ai-automations/{created_automation_id}/train",
+                200,
+                data=training_data
+            )
+            
+            if success:
+                training_id = training_response.get('training_id')
+                print(f"   ✅ AI training initiated: {training_id}")
+        
+        # Step 13: Test execution history
+        print("\n📊 Step 13: Testing execution history...")
+        success, execution_history = self.run_test(
+            "Get Execution History",
+            "GET",
+            "ai-automations/execution-history",
+            200
+        )
+        
+        if success:
+            print(f"   📊 Execution history entries: {len(execution_history)}")
+            
+            # Test filtering by automation ID
+            if created_automation_id:
+                success, filtered_history = self.run_test(
+                    "Get Execution History by Automation ID",
+                    "GET",
+                    "ai-automations/execution-history",
+                    200,
+                    params={"automation_id": created_automation_id}
+                )
+                
+                if success:
+                    print(f"   📊 Filtered history entries: {len(filtered_history)}")
+        
+        # Step 14: Test dependency validation when toggling
+        print("\n🔗 Step 14: Testing dependency validation...")
+        
+        # Find an automation with dependencies
+        dependent_automation = None
+        for auto in automations:
+            if auto.get('dependencies') and not auto.get('is_active', True):
+                dependent_automation = auto
+                break
+        
+        if dependent_automation:
+            automation_id = dependent_automation.get('id')
+            success, toggle_response = self.run_test(
+                "Try to Activate Automation with Inactive Dependencies",
+                "POST",
+                f"ai-automations/{automation_id}/toggle",
+                400  # Should fail due to inactive dependencies
+            )
+            
+            if success:
+                print("   ✅ Dependency validation working - activation blocked")
+            else:
+                print("   ⚠️ Dependency validation may not be working properly")
+        
+        # Final summary
+        print("\n" + "="*70)
+        print("📋 AI-POWERED AUTOMATION SYSTEM SUMMARY")
+        print("="*70)
+        
+        success_criteria = [
+            len(found_automations) >= 7,  # 7 default automations
+            len(categories_found) >= 5,   # 5 categories
+            ai_configured_count >= 7,     # AI behavior configured
+            len(valid_priorities) == len(priorities),  # Valid priorities
+            conflicts_found > 0,          # Conflict detection working
+            created_automation_id is not None  # CRUD operations working
+        ]
+        
+        passed_criteria = sum(success_criteria)
+        total_criteria = len(success_criteria)
+        
+        print(f"✅ Passed criteria: {passed_criteria}/{total_criteria}")
+        print(f"📊 Default automations: {len(found_automations)}/7")
+        print(f"📊 Categories: {len(categories_found)}/5")
+        print(f"📊 AI configured: {ai_configured_count}/{len(automations)}")
+        print(f"📊 Valid priorities: {len(valid_priorities)}/{len(priorities)}")
+        print(f"📊 Conflicts detected: {conflicts_found}")
+        
+        if passed_criteria >= total_criteria * 0.8:  # 80% success rate
+            print("🎉 AI-POWERED AUTOMATION SYSTEM: WORKING EXCELLENTLY!")
+            return True
+        else:
+            print("❌ AI-POWERED AUTOMATION SYSTEM: ISSUES DETECTED")
+            return False
+
     def run_all_tests(self):
         """Run all API tests with focus on AI and Settings endpoints"""
         print("🚀 Starting RUBIO GARCÍA DENTAL API Testing Suite - AI & Settings Focus")
