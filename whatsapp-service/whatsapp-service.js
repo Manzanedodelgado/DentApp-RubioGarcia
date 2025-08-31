@@ -455,14 +455,48 @@ app.post('/send-reminder', async (req, res) => {
     res.json(result);
 });
 
+// Add new endpoints for consent forms and surveys
 app.post('/send-consent', async (req, res) => {
-    const { phone_number, appointment_data } = req.body;
+    const { phone_number, consent_data } = req.body;
     
-    if (!phone_number || !appointment_data) {
-        return res.status(400).json({ error: 'Phone number and appointment data are required' });
+    if (!phone_number || !consent_data) {
+        return res.status(400).json({ error: 'Phone number and consent data are required' });
     }
     
-    const result = await sendSurgeryConsent(phone_number, appointment_data);
+    const result = await sendConsentForm(phone_number, consent_data);
+    res.json(result);
+});
+
+app.post('/send-survey', async (req, res) => {
+    const { phone_number, patient_data } = req.body;
+    
+    if (!phone_number || !patient_data) {
+        return res.status(400).json({ error: 'Phone number and patient data are required' });
+    }
+    
+    const result = await sendFirstVisitSurvey(phone_number, patient_data);
+    res.json(result);
+});
+
+app.post('/send-interactive', async (req, res) => {
+    const { phone_number, message, buttons } = req.body;
+    
+    if (!phone_number || !message || !buttons) {
+        return res.status(400).json({ error: 'Phone number, message and buttons are required' });
+    }
+    
+    const result = await sendMessageWithButtons(phone_number, message, buttons);
+    res.json(result);
+});
+
+app.post('/send-document', async (req, res) => {
+    const { phone_number, message, document_path, file_name } = req.body;
+    
+    if (!phone_number || !document_path || !file_name) {
+        return res.status(400).json({ error: 'Phone number, document path and file name are required' });
+    }
+    
+    const result = await sendMessageWithDocument(phone_number, message || '', document_path, file_name);
     res.json(result);
 });
 
