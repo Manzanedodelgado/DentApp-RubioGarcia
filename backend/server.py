@@ -3424,13 +3424,74 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("startup")
-async def startup_event():
-    """Start background tasks on app startup"""
+# Database initialization functions
+async def init_database_collections():
+    """Initialize database collections and indexes"""
+    try:
+        # Create indexes for better performance
+        await db.contacts.create_index("id")
+        await db.appointments.create_index("id")
+        await db.appointments.create_index("date")
+        await db.messages.create_index("contact_id")
+        await db.chat_sessions.create_index("contact_id")
+        logging.info("Database collections initialized")
+    except Exception as e:
+        logging.error(f"Error initializing database collections: {str(e)}")
+
+async def create_default_consent_templates():
+    """Create default consent templates if they don't exist"""
+    try:
+        # Check if templates already exist
+        existing_count = await db.consent_templates.count_documents({})
+        if existing_count > 0:
+            return
+        
+        # Create basic default templates
+        default_templates = [
+            {
+                "treatment_code": 9,
+                "treatment_name": "Periodoncia",
+                "name": "Consentimiento Periodontal",
+                "content": "Consentimiento informado para tratamiento periodontal",
+                "variables": ["nombre", "fecha", "hora", "doctor"],
+                "send_timing": "day_before",
+                "send_hour": "10:00",
+                "active": True
+            }
+        ]
+        
+        for template_data in default_templates:
+            template = ConsentTemplate(**template_data)
+            await db.consent_templates.insert_one(prepare_for_mongo(template.dict()))
+            
+        logging.info("Default consent templates created")
+    except Exception as e:
+        logging.error(f"Error creating default consent templates: {str(e)}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logging.info("Starting up...")
+    
+    # Initialize database collections
+    await init_database_collections()
+    
+    # Create default consent templates
+    await create_default_consent_templates()
+    
+    # Create default consent message templates 
+    await create_default_consent_message_templates()
+    
+    # Create default consent message settings
+    await create_default_consent_message_settings()
+    
+    # Start background tasks
     start_scheduler()
     await initialize_default_consent_templates()
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
+    
+    yield
+    
+    # Shutdown
+    logging.info("Shutting down...")
     stop_scheduler()
     client.close()
