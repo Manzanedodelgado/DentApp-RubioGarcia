@@ -3222,6 +3222,103 @@ async def get_whatsapp_qr():
         logger.error(f"Error getting WhatsApp QR: {str(e)}")
         return {"qr": None, "error": str(e)}
 
+@api_router.get("/conversations")
+async def get_conversations():
+    """Get all WhatsApp conversations"""
+    try:
+        conversations = []
+        async for conversation in db.conversations.find({}).sort("last_message_time", -1):
+            conversations.append({
+                "id": conversation["_id"],
+                "patient_name": conversation.get("patient_name", "Desconocido"),
+                "patient_phone": conversation.get("patient_phone"),
+                "last_message": conversation.get("last_message", ""),
+                "last_message_time": conversation.get("last_message_time"),
+                "urgency_color": conversation.get("urgency_color", "gray"),
+                "pending_response": conversation.get("pending_response", False),
+                "message_count": conversation.get("message_count", 0)
+            })
+        return conversations
+    except Exception as e:
+        logger.error(f"Error fetching conversations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching conversations")
+
+@api_router.get("/conversations/{conversation_id}/messages")
+async def get_conversation_messages(conversation_id: str):
+    """Get messages for a specific conversation"""
+    try:
+        messages = []
+        async for message in db.whatsapp_messages.find({"conversation_id": conversation_id}).sort("timestamp", 1):
+            messages.append({
+                "id": message["_id"],
+                "message": message.get("message", ""),
+                "sender": message.get("sender", "patient"),  # patient or clinic
+                "timestamp": message.get("timestamp"),
+                "status": message.get("status", "sent")
+            })
+        return messages
+    except Exception as e:
+        logger.error(f"Error fetching conversation messages: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching conversation messages")
+
+@api_router.post("/conversations/{conversation_id}/send-message")
+async def send_message_to_conversation(conversation_id: str, message_data: dict):
+    """Send a message to a specific conversation"""
+    try:
+        # Get conversation details
+        conversation = await db.conversations.find_one({"_id": conversation_id})
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        phone_number = conversation.get("patient_phone")
+        if not phone_number:
+            raise HTTPException(status_code=400, detail="Phone number not found for this conversation")
+        
+        # Send via WhatsApp service
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/send",
+                json={
+                    "phone_number": phone_number,
+                    "message": message_data.get("message", "")
+                },
+                timeout=10.0
+            )
+            result = response.json()
+        
+        if result.get("success"):
+            # Save message to database
+            message_doc = {
+                "_id": str(uuid.uuid4()),
+                "conversation_id": conversation_id,
+                "message": message_data.get("message", ""),
+                "sender": "clinic",
+                "timestamp": datetime.now(timezone.utc),
+                "status": "sent"
+            }
+            await db.whatsapp_messages.insert_one(message_doc)
+            
+            # Update conversation last message
+            await db.conversations.update_one(
+                {"_id": conversation_id},
+                {
+                    "$set": {
+                        "last_message": message_data.get("message", ""),
+                        "last_message_time": datetime.now(timezone.utc),
+                        "pending_response": False
+                    },
+                    "$inc": {"message_count": 1}
+                }
+            )
+            
+            return {"success": True, "message": "Message sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send message")
+            
+    except Exception as e:
+        logger.error(f"Error sending message to conversation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error sending message")
+
 @api_router.post("/whatsapp/send")
 async def send_whatsapp_message(message_data: WhatsAppMessage):
     """Send message via WhatsApp"""
@@ -3235,7 +3332,48 @@ async def send_whatsapp_message(message_data: WhatsAppMessage):
                 },
                 timeout=10.0
             )
-            return response.json()
+            result = response.json()
+            
+        if result.get("success"):
+            # Try to find or create conversation
+            conversation = await db.conversations.find_one({"patient_phone": message_data.phone_number})
+            if not conversation:
+                # Create new conversation
+                conversation_id = str(uuid.uuid4())
+                await db.conversations.insert_one({
+                    "_id": conversation_id,
+                    "patient_phone": message_data.phone_number,
+                    "patient_name": "Desconocido",
+                    "last_message": message_data.message,
+                    "last_message_time": datetime.now(timezone.utc),
+                    "urgency_color": "gray",
+                    "pending_response": False,
+                    "message_count": 1
+                })
+            else:
+                conversation_id = conversation["_id"]
+                await db.conversations.update_one(
+                    {"_id": conversation_id},
+                    {
+                        "$set": {
+                            "last_message": message_data.message,
+                            "last_message_time": datetime.now(timezone.utc)
+                        },
+                        "$inc": {"message_count": 1}
+                    }
+                )
+            
+            # Save message to database
+            await db.whatsapp_messages.insert_one({
+                "_id": str(uuid.uuid4()),
+                "conversation_id": conversation_id,
+                "message": message_data.message,
+                "sender": "clinic",
+                "timestamp": datetime.now(timezone.utc),
+                "status": "sent"
+            })
+            
+        return result
     except Exception as e:
         logger.error(f"Error sending WhatsApp message: {str(e)}")
         raise HTTPException(status_code=500, detail="Error sending WhatsApp message")
