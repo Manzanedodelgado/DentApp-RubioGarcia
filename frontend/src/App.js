@@ -1713,252 +1713,434 @@ const Agenda = () => {
   );
 };
 
-// Templates Component - CRUD management for message templates
+// Templates Component with Consent Message Templates
 const Templates = () => {
   const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [consentMessageTemplates, setConsentMessageTemplates] = useState([]);
+  const [consentMessageSettings, setConsentMessageSettings] = useState([]);
+  const [activeTab, setActiveTab] = useState('reminder-templates');
+  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [formData, setFormData] = useState({ name: '', content: '' });
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    content: '',
+    variables: []
+  });
 
-  // Available variables for templates
   const availableVariables = [
-    { name: 'nombre', description: 'Nombre completo del paciente', example: 'Juan Pérez' },
-    { name: 'fecha', description: 'Fecha de la cita', example: '15 de enero de 2025' },
+    { name: 'nombre', description: 'Nombre del paciente', example: 'María García' },
+    { name: 'fecha', description: 'Fecha de la cita', example: '15/03/2024' },
     { name: 'hora', description: 'Hora de la cita', example: '10:30' },
-    { name: 'doctor', description: 'Nombre del doctor asignado', example: 'Dr. Mario Rubio' },
-    { name: 'tratamiento', description: 'Tipo de tratamiento', example: 'Revisión' },
-    { name: 'telefono', description: 'Teléfono del paciente', example: '+34 666 555 444' },
-    { name: 'numpac', description: 'Número de paciente', example: '12345' }
+    { name: 'doctor', description: 'Nombre del doctor', example: 'Dr. Rubio' },
+    { name: 'tratamiento', description: 'Tipo de tratamiento', example: 'Limpieza dental' },
+    { name: 'clinica', description: 'Nombre de la clínica', example: 'Rubio García Dental' },
+    { name: 'telefono', description: 'Teléfono de la clínica', example: '916 410 841' },
+    { name: 'direccion', description: 'Dirección de la clínica', example: 'Calle Mayor 19, Alcorcón' }
   ];
 
-  // Fetch templates from backend
-  const fetchTemplates = async () => {
+  const consentTemplateTypes = [
+    { value: 'appointment_confirmation', label: 'Confirmación de Cita', description: 'Mensajes para confirmar citas con botones interactivos' },
+    { value: 'consent_form', label: 'Formulario de Consentimiento', description: 'Mensajes para enviar consentimientos informados' },
+    { value: 'lopd_consent', label: 'Consentimiento LOPD', description: 'Mensajes para protección de datos' },
+    { value: 'survey_invite', label: 'Invitación a Encuesta', description: 'Mensajes para encuestas de primera visita' }
+  ];
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/templates`);
-      setTemplates(response.data);
+      // Fetch reminder templates
+      const templatesResponse = await axios.get(`${API}/templates`);
+      setTemplates(templatesResponse.data);
+
+      // Fetch consent message templates
+      const consentTemplatesResponse = await axios.get(`${API}/consent-message-templates`);
+      setConsentMessageTemplates(consentTemplatesResponse.data);
+
+      // Fetch consent message settings
+      const settingsResponse = await axios.get(`${API}/consent-message-settings`);
+      setConsentMessageSettings(settingsResponse.data);
     } catch (error) {
-      console.error("Error fetching templates:", error);
-      toast.error("Error cargando plantillas");
+      console.error('Error fetching data:', error);
+      toast.error('Error cargando plantillas');
     } finally {
       setLoading(false);
     }
   };
 
-  // Create new template
-  const handleCreate = async () => {
-    if (!formData.name.trim() || !formData.content.trim()) {
-      toast.error("Nombre y contenido son obligatorios");
-      return;
-    }
+  const previewTemplate = (content) => {
+    let preview = content;
+    availableVariables.forEach(variable => {
+      const regex = new RegExp(`{${variable.name}}`, 'g');
+      preview = preview.replace(regex, variable.example);
+    });
+    return preview;
+  };
 
-    setLoading(true);
+  const handleCreateTemplate = async () => {
     try {
-      await axios.post(`${API}/templates`, formData);
-      toast.success("Plantilla creada exitosamente");
+      await axios.post(`${API}/templates`, newTemplate);
+      toast.success('Plantilla creada exitosamente');
+      setNewTemplate({ name: '', content: '', variables: [] });
       setShowCreateDialog(false);
-      setFormData({ name: '', content: '' });
-      fetchTemplates();
+      fetchData();
     } catch (error) {
-      console.error("Error creating template:", error);
-      toast.error("Error creando plantilla");
-    } finally {
-      setLoading(false);
+      console.error('Error creating template:', error);
+      toast.error('Error creando plantilla');
     }
   };
 
-  // Update existing template
-  const handleUpdate = async () => {
-    if (!formData.name.trim() || !formData.content.trim()) {
-      toast.error("Nombre y contenido son obligatorios");
-      return;
-    }
-
-    setLoading(true);
+  const handleUpdateTemplate = async () => {
     try {
-      await axios.put(`${API}/templates/${selectedTemplate.id}`, formData);
-      toast.success("Plantilla actualizada exitosamente");
+      await axios.put(`${API}/templates/${selectedTemplate.id}`, selectedTemplate);
+      toast.success('Plantilla actualizada exitosamente');
       setShowEditDialog(false);
       setSelectedTemplate(null);
-      setFormData({ name: '', content: '' });
-      fetchTemplates();
+      fetchData();
     } catch (error) {
-      console.error("Error updating template:", error);
-      toast.error("Error actualizando plantilla");
-    } finally {
-      setLoading(false);
+      console.error('Error updating template:', error);
+      toast.error('Error actualizando plantilla');
     }
   };
 
-  // Delete template
-  const handleDelete = async () => {
-    setLoading(true);
+  const handleDeleteTemplate = async () => {
     try {
       await axios.delete(`${API}/templates/${selectedTemplate.id}`);
-      toast.success("Plantilla eliminada exitosamente");
+      toast.success('Plantilla eliminada exitosamente');
       setShowDeleteDialog(false);
       setSelectedTemplate(null);
-      fetchTemplates();
+      fetchData();
     } catch (error) {
-      console.error("Error deleting template:", error);
-      toast.error("Error eliminando plantilla");
-    } finally {
-      setLoading(false);
+      console.error('Error deleting template:', error);
+      toast.error('Error eliminando plantilla');
     }
   };
 
-  // Open edit dialog
+  const toggleConsentTemplate = async (templateId) => {
+    try {
+      const response = await axios.post(`${API}/consent-message-templates/${templateId}/toggle`);
+      toast.success(response.data.message);
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling template:', error);
+      toast.error('Error cambiando estado de plantilla');
+    }
+  };
+
+  const updateConsentSetting = async (settingName, value) => {
+    try {
+      await axios.put(`${API}/consent-message-settings/${settingName}`, {
+        setting_value: value
+      });
+      toast.success('Configuración actualizada');
+      fetchData();
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      toast.error('Error actualizando configuración');
+    }
+  };
+
   const openEditDialog = (template) => {
-    setSelectedTemplate(template);
-    setFormData({ name: template.name, content: template.content });
+    setSelectedTemplate({ ...template });
     setShowEditDialog(true);
   };
 
-  // Open delete dialog
   const openDeleteDialog = (template) => {
     setSelectedTemplate(template);
     setShowDeleteDialog(true);
   };
 
-  // Insert variable into content
-  const insertVariable = (variable) => {
-    const newContent = formData.content + `{${variable.name}}`;
-    setFormData({ ...formData, content: newContent });
-  };
-
-  // Preview template with sample data
-  const previewTemplate = (content) => {
-    return content
-      .replace(/{nombre}/g, 'Juan Pérez')
-      .replace(/{fecha}/g, '15 de enero de 2025')
-      .replace(/{hora}/g, '10:30')
-      .replace(/{doctor}/g, 'Dr. Mario Rubio')
-      .replace(/{tratamiento}/g, 'Revisión')
-      .replace(/{telefono}/g, '+34 666 555 444')
-      .replace(/{numpac}/g, '12345');
-  };
-
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Gestión de Plantillas</h1>
-          <p className="text-gray-600 mt-2">Crea y administra plantillas de mensajes para recordatorios</p>
+          <p className="text-gray-600 mt-2">Administra plantillas de mensajes y configuraciones de consentimiento</p>
         </div>
-        <Button 
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Plantilla
-        </Button>
       </div>
 
-      {/* Available Variables Reference */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Variables Disponibles</CardTitle>
-          <CardDescription>
-            Usa estas variables en tus plantillas para personalizar los mensajes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableVariables.map(variable => (
-              <div key={variable.name} className="p-3 border rounded-lg bg-gray-50">
-                <div className="flex items-center space-x-2 mb-2">
-                  <code className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                    {`{${variable.name}}`}
-                  </code>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">{variable.description}</p>
-                <p className="text-xs text-gray-500">Ejemplo: {variable.example}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="reminder-templates">Plantillas de Recordatorios</TabsTrigger>
+          <TabsTrigger value="consent-templates">Mensajes de Consentimiento</TabsTrigger>
+          <TabsTrigger value="consent-settings">Configuración</TabsTrigger>
+        </TabsList>
 
-      {/* Templates List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Plantillas Creadas ({templates.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Reminder Templates Tab */}
+        <TabsContent value="reminder-templates" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Plantillas de Recordatorios</h2>
+            <Button 
+              onClick={() => setShowCreateDialog(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Plantilla
+            </Button>
+          </div>
+
+          {/* Available Variables Reference */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Variables Disponibles</CardTitle>
+              <CardDescription>
+                Usa estas variables en tus plantillas para personalizar los mensajes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {availableVariables.map(variable => (
+                  <div key={variable.name} className="p-3 border rounded-lg bg-gray-50">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <code className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                        {`{${variable.name}}`}
+                      </code>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">{variable.description}</p>
+                    <p className="text-xs text-gray-500">Ejemplo: {variable.example}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Templates List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Plantillas Creadas ({templates.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p>Cargando plantillas...</p>
+                </div>
+              ) : templates.length > 0 ? (
+                <div className="space-y-4">
+                  {templates.map(template => (
+                    <div key={template.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            {template.name}
+                          </h3>
+                          
+                          {/* Original Content */}
+                          <div className="mb-3">
+                            <Label className="text-sm font-medium text-gray-700">Plantilla:</Label>
+                            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 font-mono">
+                              {template.content}
+                            </p>
+                          </div>
+                          
+                          {/* Preview */}
+                          <div className="mb-3">
+                            <Label className="text-sm font-medium text-gray-700">Vista previa:</Label>
+                            <p className="text-sm text-gray-800 bg-blue-50 p-2 rounded mt-1">
+                              {previewTemplate(template.content)}
+                            </p>
+                          </div>
+                          
+                          <p className="text-xs text-gray-500">
+                            Creada: {new Date(template.created_at).toLocaleDateString('es-ES')}
+                          </p>
+                        </div>
+                        
+                        <div className="flex space-x-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(template)}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDeleteDialog(template)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Tag className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No hay plantillas creadas</p>
+                  <p className="text-sm">Crea tu primera plantilla para comenzar</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Consent Message Templates Tab */}
+        <TabsContent value="consent-templates" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Plantillas de Mensajes de Consentimiento</h2>
+            <p className="text-sm text-gray-600">Gestiona los mensajes que se envían para consentimientos</p>
+          </div>
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p>Cargando plantillas...</p>
-            </div>
-          ) : templates.length > 0 ? (
-            <div className="space-y-4">
-              {templates.map(template => (
-                <div key={template.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {template.name}
-                      </h3>
-                      
-                      {/* Original Content */}
-                      <div className="mb-3">
-                        <Label className="text-sm font-medium text-gray-700">Plantilla:</Label>
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1 font-mono">
-                          {template.content}
-                        </p>
-                      </div>
-                      
-                      {/* Preview */}
-                      <div className="mb-3">
-                        <Label className="text-sm font-medium text-gray-700">Vista previa:</Label>
-                        <p className="text-sm text-gray-800 bg-blue-50 p-2 rounded mt-1">
-                          {previewTemplate(template.content)}
-                        </p>
-                      </div>
-                      
-                      <p className="text-xs text-gray-500">
-                        Creada: {new Date(template.created_at).toLocaleDateString('es-ES')}
-                      </p>
-                    </div>
-                    
-                    <div className="flex space-x-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(template)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDeleteDialog(template)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Eliminar
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <p>Cargando plantillas de consentimiento...</p>
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <Tag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No hay plantillas</h3>
-              <p>Crea tu primera plantilla para empezar a enviar recordatorios personalizados.</p>
+            <div className="space-y-6">
+              {consentTemplateTypes.map(type => {
+                const typeTemplates = consentMessageTemplates.filter(t => t.template_type === type.value);
+                
+                return (
+                  <Card key={type.value}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <div>
+                          <h3>{type.label}</h3>
+                          <p className="text-sm text-gray-600 font-normal">{type.description}</p>
+                        </div>
+                        <Badge variant="outline">
+                          {typeTemplates.length} plantilla{typeTemplates.length !== 1 ? 's' : ''}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {typeTemplates.length > 0 ? (
+                        <div className="space-y-4">
+                          {typeTemplates.map(template => (
+                            <div key={template.id} className="border rounded-lg p-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <h4 className="font-semibold">{template.template_name}</h4>
+                                    {template.treatment_code && (
+                                      <Badge variant="secondary">
+                                        Código {template.treatment_code}
+                                      </Badge>
+                                    )}
+                                    <Badge variant={template.is_active ? "default" : "secondary"}>
+                                      {template.is_active ? "Activo" : "Inactivo"}
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="mb-3">
+                                    <Label className="text-sm font-medium text-gray-700">Mensaje:</Label>
+                                    <div className="text-sm text-gray-800 bg-gray-50 p-3 rounded mt-1 whitespace-pre-wrap">
+                                      {template.message_text}
+                                    </div>
+                                  </div>
+                                  
+                                  {template.variables && template.variables.length > 0 && (
+                                    <div className="mb-2">
+                                      <Label className="text-sm font-medium text-gray-700">Variables disponibles:</Label>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {template.variables.map(variable => (
+                                          <code key={variable} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                            {`{${variable}}`}
+                                          </code>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className="flex space-x-2 ml-4">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleConsentTemplate(template.id)}
+                                    className={template.is_active ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
+                                  >
+                                    {template.is_active ? "Desactivar" : "Activar"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center py-4 text-gray-500">
+                          No hay plantillas de este tipo
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        {/* Consent Settings Tab */}
+        <TabsContent value="consent-settings" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Configuración de Consentimientos</h2>
+            <p className="text-sm text-gray-600">Ajusta la configuración automática de mensajes</p>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Cargando configuración...</p>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuraciones Automáticas</CardTitle>
+                <CardDescription>
+                  Controla el comportamiento automático del sistema de consentimientos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {consentMessageSettings.map(setting => (
+                    <div key={setting.setting_name} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{setting.description}</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {setting.setting_name}
+                        </p>
+                      </div>
+                      <div className="ml-4">
+                        {typeof setting.setting_value === 'boolean' ? (
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={setting.setting_value}
+                              onChange={(e) => updateConsentSetting(setting.setting_name, e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                          </label>
+                        ) : (
+                          <Input
+                            type="number"
+                            value={setting.setting_value}
+                            onChange={(e) => updateConsentSetting(setting.setting_name, parseInt(e.target.value))}
+                            className="w-20"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Create Template Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -1971,55 +2153,33 @@ const Templates = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Template Name */}
             <div>
               <Label htmlFor="name">Nombre de la Plantilla</Label>
               <Input
                 id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={newTemplate.name}
+                onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
                 placeholder="Ej: Recordatorio Cita Urgente"
               />
             </div>
-
-            {/* Quick Insert Variables */}
-            <div>
-              <Label className="text-sm font-medium">Insertar Variables Rápidas:</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {availableVariables.map(variable => (
-                  <Button
-                    key={variable.name}
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => insertVariable(variable)}
-                    className="text-xs"
-                  >
-                    {`{${variable.name}}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
             
-            {/* Template Content */}
             <div>
               <Label htmlFor="content">Contenido de la Plantilla</Label>
               <Textarea
                 id="content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                value={newTemplate.content}
+                onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
                 placeholder="Hola {nombre}, te recordamos tu cita el {fecha} a las {hora}..."
                 className="h-32"
               />
             </div>
 
-            {/* Preview */}
-            {formData.content && (
+            {newTemplate.content && (
               <div>
                 <Label className="text-sm font-medium">Vista Previa:</Label>
                 <div className="p-3 bg-blue-50 rounded-lg mt-2">
                   <p className="text-sm text-gray-800">
-                    {previewTemplate(formData.content)}
+                    {previewTemplate(newTemplate.content)}
                   </p>
                 </div>
               </div>
@@ -2030,8 +2190,8 @@ const Templates = () => {
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate} disabled={loading}>
-              {loading ? 'Creando...' : 'Crear Plantilla'}
+            <Button onClick={handleCreateTemplate}>
+              Crear Plantilla
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2048,55 +2208,33 @@ const Templates = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Template Name */}
             <div>
               <Label htmlFor="edit-name">Nombre de la Plantilla</Label>
               <Input
                 id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={selectedTemplate?.name || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, name: e.target.value })}
                 placeholder="Ej: Recordatorio Cita Urgente"
               />
             </div>
-
-            {/* Quick Insert Variables */}
-            <div>
-              <Label className="text-sm font-medium">Insertar Variables Rápidas:</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {availableVariables.map(variable => (
-                  <Button
-                    key={variable.name}
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => insertVariable(variable)}
-                    className="text-xs"
-                  >
-                    {`{${variable.name}}`}
-                  </Button>
-                ))}
-              </div>
-            </div>
             
-            {/* Template Content */}
             <div>
               <Label htmlFor="edit-content">Contenido de la Plantilla</Label>
               <Textarea
                 id="edit-content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                value={selectedTemplate?.content || ''}
+                onChange={(e) => setSelectedTemplate({ ...selectedTemplate, content: e.target.value })}
                 placeholder="Hola {nombre}, te recordamos tu cita el {fecha} a las {hora}..."
                 className="h-32"
               />
             </div>
 
-            {/* Preview */}
-            {formData.content && (
+            {selectedTemplate?.content && (
               <div>
                 <Label className="text-sm font-medium">Vista Previa:</Label>
                 <div className="p-3 bg-blue-50 rounded-lg mt-2">
                   <p className="text-sm text-gray-800">
-                    {previewTemplate(formData.content)}
+                    {previewTemplate(selectedTemplate.content)}
                   </p>
                 </div>
               </div>
@@ -2107,8 +2245,8 @@ const Templates = () => {
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleUpdate} disabled={loading}>
-              {loading ? 'Actualizando...' : 'Actualizar Plantilla'}
+            <Button onClick={handleUpdateTemplate}>
+              Actualizar Plantilla
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2130,11 +2268,10 @@ const Templates = () => {
               Cancelar
             </Button>
             <Button 
-              onClick={handleDelete} 
-              disabled={loading}
+              onClick={handleDeleteTemplate} 
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {loading ? 'Eliminando...' : 'Eliminar Plantilla'}
+              Eliminar Plantilla
             </Button>
           </DialogFooter>
         </DialogContent>
