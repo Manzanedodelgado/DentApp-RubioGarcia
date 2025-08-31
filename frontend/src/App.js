@@ -710,6 +710,9 @@ const DailyAppointments = ({ selectedDate }) => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
+
   useEffect(() => {
     if (selectedDate) {
       fetchAppointments();
@@ -723,12 +726,18 @@ const DailyAppointments = ({ selectedDate }) => {
     try {
       const formattedDate = selectedDate.toISOString().split('T')[0];
       console.log('Fetching appointments for date:', formattedDate);
+      console.log('API URL:', `${API}/appointments/by-date?date=${formattedDate}`);
+      
       const response = await axios.get(`${API}/appointments/by-date?date=${formattedDate}`);
       console.log('Appointments response:', response.data);
-      setAppointments(response.data);
+      console.log('Number of appointments:', response.data ? response.data.length : 0);
+      
+      setAppointments(response.data || []);
     } catch (error) {
       console.error("Error fetching appointments:", error);
+      console.error("API endpoint:", `${API}/appointments/by-date?date=${selectedDate.toISOString().split('T')[0]}`);
       toast.error("Error cargando citas");
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
