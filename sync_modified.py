@@ -107,6 +107,30 @@ def send_to_google_sheets(data):
         log_message(f"❌ ERROR Google Sheets: {e}")
         return False
 
+def update_existing_row(sheet, registro_id, new_row_data):
+    """
+    Busca una fila por ID de registro y la actualiza
+    Replica la lógica de modificación de Make.com
+    """
+    try:
+        # Obtener todos los datos de la hoja
+        all_values = sheet.get_all_values()
+        
+        # Buscar la fila que contiene el registro ID (primera columna)
+        for row_index, row in enumerate(all_values):
+            if len(row) > 0 and row[0] == str(registro_id):
+                # Encontrada - actualizar fila (row_index + 1 porque gspread usa base 1)
+                target_row = row_index + 1
+                range_name = f'A{target_row}:O{target_row}'  # Asumiendo columnas A-O
+                sheet.update(range_name, [new_row_data])
+                return True
+        
+        return False  # No encontrada
+        
+    except Exception as e:
+        log_message(f"❌ ERROR buscando fila para actualizar: {e}")
+        return False
+
 def send_to_google_sheets_api_rest(data):
     """
     Método alternativo: enviar a Google Sheets usando API REST
