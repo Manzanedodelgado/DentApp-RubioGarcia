@@ -906,7 +906,7 @@ async def get_pending_conversations():
             "urgency_color": {"$in": ["red", "black", "yellow"]}
         }).sort("timestamp", -1).to_list(100)
         
-        return [ConversationStatus(**parse_from_mongo(conv)) for conv in pending_conversations]
+        return [DashboardTask(**parse_from_mongo(conv)) for conv in pending_conversations]
     except Exception as e:
         logger.error(f"Error fetching pending conversations: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching conversations")
