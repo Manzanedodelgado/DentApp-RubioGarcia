@@ -4000,6 +4000,11 @@ class OmniDeskAPITester:
             print("❌ CRITICAL: Emergent LLM integration tests failed")
             return 1
         
+        print("\n🎯 PRIMARY FOCUS: AI-POWERED AUTOMATION SYSTEM")
+        if not self.test_ai_automation_system():
+            print("❌ CRITICAL: AI-Powered Automation System tests failed")
+            return 1
+        
         print("\n🎯 PRIMARY FOCUS: AUTOMATION SCHEDULER")
         if not self.test_automation_scheduler():
             print("❌ CRITICAL: Automation scheduler tests failed")
