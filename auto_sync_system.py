@@ -14,7 +14,7 @@ import logging
 
 # Configuración
 RUBIO_SYNC_PATH = "C:\\Rubio_sync"  # Ruta en GABINETE2
-DEVELOPMENT_API_URL = "https://dentiflow.preview.emergentagent.com/api"  # URL del entorno de desarrollo
+DEVELOPMENT_API_URL = "https://dental-ai-hub.preview.emergentagent.com/api"  # URL del entorno de desarrollo
 UPDATE_CHECK_URL = f"{DEVELOPMENT_API_URL}/sync/check-updates"
 DOWNLOAD_URL = f"{DEVELOPMENT_API_URL}/sync/download-files"
 
