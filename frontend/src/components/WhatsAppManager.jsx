@@ -24,18 +24,24 @@ const WhatsAppManager = () => {
 
   const fetchStatus = async () => {
     try {
+      console.log('Fetching WhatsApp status...');
       const response = await axios.get(`${API}/whatsapp/status`);
+      console.log('Status response:', response.data);
       setStatus(response.data);
       
-      // If not connected, try to get QR code
+      // Always try to get QR code when not connected
       if (!response.data.connected) {
-        fetchQRCode();
+        console.log('Not connected, fetching QR code...');
+        await fetchQRCode();
       } else {
+        console.log('Connected, clearing QR code');
         setQrCode(null);
       }
     } catch (error) {
       console.error('Error fetching WhatsApp status:', error);
       setStatus({ connected: false, status: 'error' });
+      // Try to get QR code even on error
+      await fetchQRCode();
     }
   };
 
