@@ -3781,9 +3781,9 @@ async def generate_daily_whatsapp_summary(target_date=None):
         return None
 
 async def send_daily_whatsapp_summary():
-    """Send daily WhatsApp summary to configured recipient"""
+    """Send daily qualitative WhatsApp summary to configured recipient"""
     try:
-        logging.info("Starting daily WhatsApp summary generation and sending")
+        logging.info("Starting daily qualitative WhatsApp summary generation and sending")
         
         # Check if today is a workday
         today = datetime.now(timezone.utc)
@@ -3797,59 +3797,15 @@ async def send_daily_whatsapp_summary():
             logging.info("Daily summary is disabled")
             return False
         
-        # Generate summary for yesterday (since this runs at end of business day)
-        yesterday = (today - timedelta(days=1)).date()
-        summary_data = await generate_daily_whatsapp_summary(yesterday)
+        # Generate qualitative summary for today
+        summary_data = await generate_daily_whatsapp_summary(today.date())
         
         if not summary_data:
             logging.error("Failed to generate summary data")
             return False
         
-        # Format message using template
-        template = settings.get("summary_template", "")
-        if not template:
-            # Use default template
-            template = """📊 RESUMEN DIARIO WHATSAPP - RUBIO GARCÍA DENTAL
-📅 {date}
-
-💬 CONVERSACIONES:
-• Total: {total_conversations}
-• Nuevas: {new_conversations} 
-• Urgentes: {urgent_conversations}
-
-📅 CITAS:
-• Confirmadas: {appointments_confirmed}
-• Canceladas: {appointments_cancelled}
-
-📋 CONSENTIMIENTOS:
-• Enviados: {consents_sent}
-• Aceptados: {consents_accepted}
-
-🤖 IA:
-• Automatizaciones: {ai_automations_triggered}
-• Satisfacción: {patient_satisfaction}
-
-🔥 TEMAS PRINCIPALES:
-{top_concerns}
-
-📈 RESUMEN:
-{summary_text}"""
-        
-        # Format the message
-        formatted_message = template.format(
-            date=summary_data["date"],
-            total_conversations=summary_data["total_conversations"],
-            new_conversations=summary_data["new_conversations"],
-            urgent_conversations=summary_data["urgent_conversations"],
-            appointments_confirmed=summary_data["appointments_confirmed"],
-            appointments_cancelled=summary_data["appointments_cancelled"],
-            consents_sent=summary_data["consents_sent"],
-            consents_accepted=summary_data["consents_accepted"],
-            ai_automations_triggered=summary_data["ai_automations_triggered"],
-            patient_satisfaction=summary_data["patient_satisfaction"],
-            top_concerns="\n".join(summary_data["top_concerns"]),
-            summary_text=summary_data["summary_text"]
-        )
+        # Use the qualitative summary text directly
+        formatted_message = summary_data["summary_text"]
         
         # Send via WhatsApp service
         recipient_phone = settings.get("recipient_phone", "648085696")
@@ -3862,11 +3818,11 @@ async def send_daily_whatsapp_summary():
             }, timeout=30)
             
         if response.status_code == 200:
-            logging.info(f"✅ Daily summary sent successfully to {recipient_phone}")
+            logging.info(f"✅ Daily qualitative summary sent successfully to {recipient_phone}")
             
             # Update summary record
             await db.whatsapp_summaries.update_one(
-                {"date": datetime.combine(yesterday, datetime.min.time()).replace(tzinfo=timezone.utc)},
+                {"date": datetime.combine(today.date(), datetime.min.time()).replace(tzinfo=timezone.utc)},
                 {"$set": {"sent_at": datetime.now(timezone.utc), "sent_to": recipient_phone}}
             )
             
@@ -3876,7 +3832,7 @@ async def send_daily_whatsapp_summary():
             return False
             
     except Exception as e:
-        logging.error(f"Error sending daily WhatsApp summary: {str(e)}")
+        logging.error(f"Error sending daily WhatsApp qualitative summary: {str(e)}")
         return False
 
 # Daily Summary Routes
