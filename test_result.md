@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Integrar la gestión del flujo de trabajo externo Gesden (SQL Server, Python script, Make.com webhooks, Flask API) en la aplicación SaaS para una administración integral. Implementar sistema de consentimientos informados automáticos basado en códigos de tratamiento: Cirugía e Implantes (10), Periodoncia (9), Ortodoncia (11), Endodoncia (16), y LOPD para primeras citas (13). Eliminar dependencia de Make.com creando sincronización directa Gesden ↔ SaaS."
+user_problem_statement: "El dashboard no muestra lo que solicité. Necesito que se muestren los mensajes pendientes de contestar y las urgencias con un pequeño resumen de cada uno. Además, mostrar calendario para que cuando pinche en un día se desplieguen las citas del día con datos básicos. Todos los campos de fecha quiero que marquen por defecto el día en curso. No es posible conectar mi número a WhatsApp. El micrófono para hablar con la IA no funciona. No veo nada para gestionar los accesos. En el dashboard generar diagramas sectoriales para ver estadísticas de los mensajes con pacientes con % de citas confirmadas, media de respuesta de mensajes."
 
 backend:
   - task: "WhatsApp Interactive Consent System Implementation"
