@@ -3360,7 +3360,59 @@ async def handle_consent_response(response: ButtonResponse):
         logging.error(f"Error handling consent response: {str(e)}")
         return "Error procesando su respuesta. Contacte al 916 410 841.", False
 
-# Dashboard Tasks Routes
+# Daily WhatsApp Summary Models
+class WhatsAppSummary(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: datetime
+    total_conversations: int = 0
+    new_conversations: int = 0
+    urgent_conversations: int = 0
+    appointments_confirmed: int = 0
+    appointments_cancelled: int = 0
+    consents_sent: int = 0
+    consents_accepted: int = 0
+    surveys_completed: int = 0
+    ai_automations_triggered: int = 0
+    patient_satisfaction_score: Optional[float] = None
+    top_concerns: List[str] = Field(default_factory=list)
+    summary_text: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DailySummarySettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    enabled: bool = True
+    recipient_phone: str = "648085696"  # Número del usuario
+    send_time: str = "18:00"  # Hora de envío (6 PM)
+    workdays_only: bool = True
+    include_attachments: bool = True
+    summary_template: str = """📊 RESUMEN DIARIO WHATSAPP - RUBIO GARCÍA DENTAL
+📅 {date}
+
+💬 CONVERSACIONES:
+• Total: {total_conversations}
+• Nuevas: {new_conversations} 
+• Urgentes: {urgent_conversations}
+
+📅 CITAS:
+• Confirmadas: {appointments_confirmed}
+• Canceladas: {appointments_cancelled}
+
+📋 CONSENTIMIENTOS:
+• Enviados: {consents_sent}
+• Aceptados: {consents_accepted}
+
+📝 ENCUESTAS:
+• Completadas: {surveys_completed}
+
+🤖 IA:
+• Automatizaciones: {ai_automations_triggered}
+• Satisfacción: {patient_satisfaction}
+
+🔥 TEMAS PRINCIPALES:
+{top_concerns}
+
+📈 RESUMEN:
+{summary_text}"""
 @api_router.get("/dashboard/tasks")
 async def get_dashboard_tasks(status: Optional[str] = None, priority: Optional[str] = None):
     """Get dashboard tasks for staff follow-up"""
