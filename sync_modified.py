@@ -115,10 +115,11 @@ def send_to_google_sheets(data):
         log_message(f"❌ ERROR Google Sheets: {e}")
         return False
 
-def update_existing_row(sheet, registro_id, new_row_data):
+def find_existing_row(sheet, registro_id):
     """
-    Busca una fila por ID de registro y la actualiza
-    Replica la lógica de modificación de Make.com
+    Busca si existe una fila con el registro ID
+    Devuelve el número de fila o None si no existe
+    Replica la lógica de filterRows de Make.com
     """
     try:
         # Obtener todos los datos de la hoja
@@ -127,16 +128,28 @@ def update_existing_row(sheet, registro_id, new_row_data):
         # Buscar la fila que contiene el registro ID (primera columna)
         for row_index, row in enumerate(all_values):
             if len(row) > 0 and row[0] == str(registro_id):
-                # Encontrada - actualizar fila (row_index + 1 porque gspread usa base 1)
-                target_row = row_index + 1
-                range_name = f'A{target_row}:O{target_row}'  # Asumiendo columnas A-O
-                sheet.update(range_name, [new_row_data])
-                return True
+                # Encontrada - devolver número de fila (base 1)
+                return row_index + 1
         
-        return False  # No encontrada
+        return None  # No encontrada
         
     except Exception as e:
-        log_message(f"❌ ERROR buscando fila para actualizar: {e}")
+        log_message(f"❌ ERROR buscando registro existente: {e}")
+        return None
+
+def update_existing_row_by_number(sheet, row_number, new_row_data):
+    """
+    Actualiza una fila específica por número de fila
+    Replica la lógica de updateRow de Make.com
+    """
+    try:
+        # Actualizar fila específica (columnas A-O)
+        range_name = f'A{row_number}:O{row_number}'
+        sheet.update(range_name, [new_row_data])
+        return True
+        
+    except Exception as e:
+        log_message(f"❌ ERROR actualizando fila {row_number}: {e}")
         return False
 
 def send_to_google_sheets_api_rest(data):
