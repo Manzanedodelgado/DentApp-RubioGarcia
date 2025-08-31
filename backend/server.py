@@ -901,10 +901,10 @@ async def get_pending_conversations():
     """Get conversations that require attention"""
     try:
         # Get conversations that need attention (red, black, yellow status)
-        pending_conversations = await db.conversation_status.find({
-            "pending_response": True,
-            "urgency_color": {"$in": ["red", "black", "yellow"]}
-        }).sort("timestamp", -1).to_list(100)
+        pending_conversations = await db.dashboard_tasks.find({
+            "status": "pending",
+            "color_code": {"$in": ["red", "black", "yellow"]}
+        }).sort("created_at", -1).to_list(100)
         
         return [DashboardTask(**parse_from_mongo(conv)) for conv in pending_conversations]
     except Exception as e:
