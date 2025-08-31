@@ -1994,22 +1994,22 @@ async def voice_assistant(request: VoiceAssistantRequest):
         
         # Store conversation status for dashboard
         try:
-            conversation_status = ConversationStatus(
-                contact_id=session_id,
-                contact_name=f"Usuario_{session_id[:8]}",
-                last_message=request.message,
-                pain_level=pain_level,
-                urgency_color=urgency_color,
-                status_description=URGENCY_COLORS[urgency_color].description,
-                pending_response=urgency_color in ["red", "black"],
-                specialty_needed=specialty_needed
+            dashboard_task = DashboardTask(
+                task_type="conversation_follow_up",
+                patient_name=f"Usuario_{session_id[:8]}",
+                patient_phone=session_id,
+                description=f"Conversación: {request.message[:50]}...",
+                priority="high" if urgency_color == "red" else "medium" if urgency_color in ["black", "yellow"] else "low",
+                color_code=urgency_color,
+                status="pending" if urgency_color in ["red", "black"] else "completed",
+                notes=f"Nivel de dolor: {pain_level}, Especialidad: {specialty_needed}"
             )
             
             # Save to database
-            status_data = prepare_for_mongo(conversation_status.dict())
-            await db.conversation_status.replace_one(
-                {"contact_id": session_id},
-                status_data,
+            task_data = prepare_for_mongo(dashboard_task.dict())
+            await db.dashboard_tasks.replace_one(
+                {"patient_phone": session_id},
+                task_data,
                 upsert=True
             )
         except Exception as e:
