@@ -4235,8 +4235,24 @@ def start_scheduler():
             replace_existing=True
         )
         
+        # Add daily WhatsApp summary job (runs at 6 PM on weekdays)
+        scheduler.add_job(
+            send_daily_whatsapp_summary,
+            trigger='cron',
+            hour=18,
+            minute=0,
+            monday=True,
+            tuesday=True, 
+            wednesday=True,
+            thursday=True,
+            friday=True,
+            id='daily_whatsapp_summary',
+            name='Daily WhatsApp Summary',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly) + consent deliveries (15min)")
+        logger.info("🚀 Scheduler started: sync (5min) + automations (hourly) + consent deliveries (15min) + daily WhatsApp summary (6 PM weekdays)")
 
 def stop_scheduler():
     """Stop the appointment sync scheduler"""
