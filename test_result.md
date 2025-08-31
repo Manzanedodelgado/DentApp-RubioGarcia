@@ -327,6 +327,7 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Test Interactive WhatsApp Consent Management Interface - navigation, task management, consent sending"
     - "Test Gesden Management frontend interface - navigation, status display, consent tracking"
   stuck_tasks: []
   test_all: false
