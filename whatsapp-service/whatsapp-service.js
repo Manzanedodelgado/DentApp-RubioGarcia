@@ -79,7 +79,7 @@ async function initWhatsApp() {
     }
 }
 
-// Handle incoming messages with AI integration
+// Handle incoming messages with AI integration and button responses
 async function handleIncomingMessage(message) {
     try {
         const phoneNumber = message.key.remoteJid.replace('@s.whatsapp.net', '');
@@ -88,6 +88,12 @@ async function handleIncomingMessage(message) {
         if (!messageText) return;
 
         console.log(`📨 Message from ${phoneNumber}: ${messageText}`);
+
+        // Check if it's a button response
+        if (message.message.buttonsResponseMessage) {
+            await handleButtonResponse(phoneNumber, message.message.buttonsResponseMessage);
+            return;
+        }
 
         // Send typing indicator
         await sock.sendPresenceUpdate('composing', message.key.remoteJid);
@@ -105,6 +111,63 @@ async function handleIncomingMessage(message) {
         // Send error message to user
         const errorMsg = 'Disculpe, hubo un error procesando su mensaje. Por favor, intente nuevamente o llame al 916 410 841.';
         await sendMessage(phoneNumber, errorMsg);
+    }
+}
+
+// Handle button responses
+async function handleButtonResponse(phoneNumber, buttonResponse) {
+    try {
+        const buttonId = buttonResponse.selectedButtonId;
+        const selectedText = buttonResponse.selectedDisplayText;
+        
+        console.log(`🔘 Button pressed by ${phoneNumber}: ${buttonId} (${selectedText})`);
+
+        // Process the button response through backend
+        const response = await axios.post(`${FASTAPI_URL}/api/whatsapp/button-response`, {
+            phone_number: phoneNumber,
+            button_id: buttonId,
+            selected_text: selectedText,
+            timestamp: new Date().toISOString()
+        });
+
+        if (response.data.reply_message) {
+            await sendMessage(phoneNumber, response.data.reply_message);
+        }
+
+        // Handle specific button actions
+        switch (buttonId) {
+            case 'confirm_appointment':
+                await sendMessage(phoneNumber, '✅ Su cita ha sido confirmada. ¡Le esperamos!');
+                break;
+                
+            case 'cancel_appointment':
+                await sendMessage(phoneNumber, '❌ Su cita ha sido cancelada. ¿Desea reprogramar? Responda BUSCAR CITA o CONTACTAR DESPUÉS');
+                break;
+                
+            case 'reschedule_appointment':
+                await sendMessage(phoneNumber, '📅 Para reprogramar su cita, ¿prefiere horario de MAÑANA o TARDE?');
+                break;
+                
+            case 'consent_accept':
+                await sendMessage(phoneNumber, '✅ Consentimiento registrado correctamente. Gracias por su confianza.');
+                break;
+                
+            case 'consent_explain':
+                await sendMessage(phoneNumber, '👨‍⚕️ Nuestro equipo se pondrá en contacto para explicarle el tratamiento detalladamente.');
+                break;
+                
+            case 'lopd_accept':
+                await sendMessage(phoneNumber, '✅ Consentimiento LOPD registrado. Sus datos están protegidos según la normativa vigente.');
+                break;
+                
+            case 'lopd_info':
+                await sendMessage(phoneNumber, '📞 Nuestro equipo le proporcionará más información sobre el tratamiento de sus datos.');
+                break;
+        }
+
+    } catch (error) {
+        console.error('❌ Error handling button response:', error);
+        await sendMessage(phoneNumber, 'Error procesando su respuesta. Contacte con la clínica: 916 410 841');
     }
 }
 
