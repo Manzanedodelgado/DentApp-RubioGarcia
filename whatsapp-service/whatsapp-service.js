@@ -213,33 +213,141 @@ Por favor, confirme su asistencia:`;
     }
 }
 
-// Send surgery consent reminder
-async function sendSurgeryConsent(phoneNumber, appointmentData) {
+// Send message with interactive buttons
+async function sendMessageWithButtons(phoneNumber, text, buttons) {
     try {
-        const { contact_name, date, time, treatment } = appointmentData;
+        if (!sock || connectionStatus !== 'connected') {
+            throw new Error('WhatsApp not connected');
+        }
+
+        const jid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
         
-        const formattedDate = moment(date).format('DD/MM/YYYY');
+        // Prepare buttons in the correct format for Baileys
+        const buttonMessage = {
+            text: text,
+            buttons: buttons.map(btn => ({
+                buttonId: btn.id,
+                buttonText: { displayText: btn.title },
+                type: 1
+            })),
+            headerType: 1
+        };
+
+        await sock.sendMessage(jid, buttonMessage);
+
+        console.log(`✅ Interactive message sent to ${phoneNumber}`);
+        return { success: true };
+
+    } catch (error) {
+        console.error('❌ Error sending interactive message:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Send message with PDF attachment
+async function sendMessageWithDocument(phoneNumber, text, documentPath, fileName) {
+    try {
+        if (!sock || connectionStatus !== 'connected') {
+            throw new Error('WhatsApp not connected');
+        }
+
+        const jid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+        const fs = require('fs');
         
-        const consentMessage = `🦷 RECORDATORIO CIRUGÍA - RUBIO GARCÍA DENTAL
+        // Check if document exists
+        if (!fs.existsSync(documentPath)) {
+            throw new Error('Document not found');
+        }
 
-👤 Paciente: ${contact_name}
-🩺 Cirugía: ${treatment}
-📅 Mañana ${formattedDate} a las ${time}
+        await sock.sendMessage(jid, {
+            document: fs.readFileSync(documentPath),
+            fileName: fileName,
+            mimetype: 'application/pdf',
+            caption: text
+        });
 
-⚠️ RECORDATORIO IMPORTANTE:
-• Venir en AYUNAS (si requiere sedación)
-• Traer ACOMPAÑANTE
-• Leer el CONSENTIMIENTO INFORMADO
+        console.log(`✅ Document sent to ${phoneNumber}: ${fileName}`);
+        return { success: true };
 
-📞 Para dudas: 916 410 841
-📱 WhatsApp: 664 218 253
+    } catch (error) {
+        console.error('❌ Error sending document:', error);
+        return { success: false, error: error.message };
+    }
+}
 
-¡Nos vemos mañana en Calle Mayor 19, Alcorcón!`;
+// Send consent form with interactive buttons and PDF
+async function sendConsentForm(phoneNumber, consentData) {
+    try {
+        const { patient_name, treatment_name, consent_type, pdf_path } = consentData;
+        
+        let consentMessage = '';
+        let buttons = [];
+        
+        if (consent_type === 'treatment') {
+            consentMessage = `🦷 CONSENTIMIENTO INFORMADO - RUBIO GARCÍA DENTAL
 
-        return await sendMessage(phoneNumber, consentMessage);
+👤 Paciente: ${patient_name}
+🩺 Tratamiento: ${treatment_name}
+
+📋 Adjunto encontrará el consentimiento informado para su tratamiento de ${treatment_name}.
+
+Por favor, lea detenidamente el documento y responda:`;
+
+            buttons = [
+                { id: 'consent_accept', title: '✅ He leído y doy mi consentimiento' },
+                { id: 'consent_explain', title: '❓ Prefiero que me lo expliquen de nuevo' }
+            ];
+        } else if (consent_type === 'lopd') {
+            consentMessage = `🦷 PROTECCIÓN DE DATOS - RUBIO GARCÍA DENTAL
+
+👤 Paciente: ${patient_name}
+
+📋 Como es su primera visita, necesitamos su consentimiento para el tratamiento de sus datos personales según la LOPD.
+
+Adjunto encontrará el documento informativo.`;
+
+            buttons = [
+                { id: 'lopd_accept', title: '✅ Acepto el tratamiento de mis datos' },
+                { id: 'lopd_info', title: '❓ Necesito más información' }
+            ];
+        }
+
+        // Send document first, then interactive message
+        if (pdf_path) {
+            await sendMessageWithDocument(phoneNumber, '', pdf_path, `${consent_type}_${patient_name}.pdf`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        }
+        
+        return await sendMessageWithButtons(phoneNumber, consentMessage, buttons);
         
     } catch (error) {
-        console.error('❌ Error sending consent:', error);
+        console.error('❌ Error sending consent form:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Send first visit survey
+async function sendFirstVisitSurvey(phoneNumber, patientData) {
+    try {
+        const { patient_name } = patientData;
+        
+        const surveyMessage = `🦷 ENCUESTA PRIMERA VISITA - RUBIO GARCÍA DENTAL
+
+👤 Paciente: ${patient_name}
+
+Para brindarle la mejor atención, por favor complete esta breve encuesta:
+
+1️⃣ ¿Cuál es el motivo principal de su consulta?
+2️⃣ ¿Siente dolor actualmente? (1-10)
+3️⃣ ¿Tiene alguna alergia conocida?
+4️⃣ ¿Toma algún medicamento actualmente?
+
+Responda con un mensaje describiendo cada punto.`;
+
+        return await sendMessage(phoneNumber, surveyMessage);
+        
+    } catch (error) {
+        console.error('❌ Error sending survey:', error);
         return { success: false, error: error.message };
     }
 }
