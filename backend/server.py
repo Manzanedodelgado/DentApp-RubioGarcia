@@ -968,9 +968,9 @@ async def get_dashboard_stats():
     ai_conversations = await db.chat_sessions.count_documents({"is_active": True})
     
     # Add pending conversations count
-    urgent_conversations = await db.conversation_status.count_documents({
-        "urgency_color": "red",
-        "pending_response": True
+    urgent_conversations = await db.dashboard_tasks.count_documents({
+        "color_code": "red",
+        "status": "pending"
     })
     
     return DashboardStats(
