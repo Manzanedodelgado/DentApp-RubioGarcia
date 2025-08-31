@@ -179,7 +179,7 @@ async function sendMessage(phoneNumber, text) {
     }
 }
 
-// Send appointment reminder
+// Send appointment reminder with interactive buttons
 async function sendAppointmentReminder(phoneNumber, appointmentData) {
     try {
         const { contact_name, date, time, doctor, treatment } = appointmentData;
@@ -198,14 +198,14 @@ async function sendAppointmentReminder(phoneNumber, appointmentData) {
 📍 Calle Mayor 19, Alcorcón
 📞 916 410 841 | 📱 664 218 253
 
-⚡ Responda con:
-✅ "CONFIRMO" para confirmar
-❌ "CANCELO" para cancelar
-📅 "CAMBIO" para reprogramar
+Por favor, confirme su asistencia:`;
 
-¡Le esperamos mañana!`;
-
-        return await sendMessage(phoneNumber, reminderMessage);
+        // Send message with interactive buttons
+        return await sendMessageWithButtons(phoneNumber, reminderMessage, [
+            { id: 'confirm_appointment', title: '✅ CONFIRMO' },
+            { id: 'cancel_appointment', title: '❌ CANCELO' },
+            { id: 'reschedule_appointment', title: '📅 CAMBIO' }
+        ]);
         
     } catch (error) {
         console.error('❌ Error sending reminder:', error);
