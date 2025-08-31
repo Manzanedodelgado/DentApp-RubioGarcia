@@ -4684,11 +4684,7 @@ def start_scheduler():
             trigger='cron',
             hour=21,  # 9 PM
             minute=0,
-            monday=True,
-            tuesday=True, 
-            wednesday=True,
-            thursday=True,
-            friday=True,
+            day_of_week='mon-fri',  # Monday to Friday
             id='daily_whatsapp_summary',
             name='Daily WhatsApp Summary',
             replace_existing=True
