@@ -296,24 +296,30 @@ const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }
   );
 };
 
-// Pending Conversations Component
+// Enhanced Conversations Component with detailed summaries
 const PendingConversations = () => {
   const [conversations, setConversations] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState("conversations");
 
   useEffect(() => {
-    fetchPendingConversations();
+    fetchPendingData();
     // Refresh every 30 seconds
-    const interval = setInterval(fetchPendingConversations, 30000);
+    const interval = setInterval(fetchPendingData, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchPendingConversations = async () => {
+  const fetchPendingData = async () => {
     try {
-      const response = await axios.get(`${API}/conversations/pending`);
-      setConversations(response.data);
+      const [conversationsRes, tasksRes] = await Promise.all([
+        axios.get(`${API}/conversations/pending`),
+        axios.get(`${API}/dashboard/tasks?status=pending`)
+      ]);
+      setConversations(conversationsRes.data);
+      setTasks(tasksRes.data);
     } catch (error) {
-      console.error("Error fetching pending conversations:", error);
+      console.error("Error fetching pending data:", error);
     } finally {
       setLoading(false);
     }
@@ -330,13 +336,33 @@ const PendingConversations = () => {
     return colors[color] || colors.gray;
   };
 
+  const getUrgencyLabel = (color) => {
+    const labels = {
+      red: "URGENTE",
+      black: "ALTA", 
+      yellow: "MEDIA",
+      gray: "BAJA",
+      green: "RESUELTA"
+    };
+    return labels[color] || "NORMAL";
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      high: "text-red-600 bg-red-50",
+      medium: "text-yellow-600 bg-yellow-50", 
+      low: "text-green-600 bg-green-50"
+    };
+    return colors[priority] || colors.medium;
+  };
+
   const markAsResolved = async (conversationId) => {
     try {
       await axios.put(`${API}/conversations/${conversationId}/status`, {
         urgency_color: "green",
         pending_response: false
       });
-      fetchPendingConversations(); // Refresh list
+      fetchPendingData(); // Refresh data
       toast.success("Conversación marcada como resuelta");
     } catch (error) {
       console.error("Error updating conversation:", error);
@@ -344,54 +370,167 @@ const PendingConversations = () => {
     }
   };
 
+  const markTaskCompleted = async (taskId) => {
+    try {
+      await axios.put(`${API}/dashboard/tasks/${taskId}`, {
+        status: "completed"
+      });
+      fetchPendingData(); // Refresh data
+      toast.success("Tarea marcada como completada");
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast.error("Error al actualizar tarea");
+    }
+  };
+
+  const formatTimeAgo = (dateStr) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return "Hace menos de 1h";
+    if (diffInHours < 24) return `Hace ${diffInHours}h`;
+    const days = Math.floor(diffInHours / 24);
+    return `Hace ${days} día${days > 1 ? 's' : ''}`;
+  };
+
+  const truncateText = (text, maxLength = 60) => {
+    if (!text) return "";
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg flex items-center">
-          <MessageCircle className="w-5 h-5 mr-2" />
-          Conversaciones Pendientes
-          {conversations.length > 0 && (
-            <Badge className="ml-2 bg-red-500">{conversations.length}</Badge>
-          )}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center">
+            <MessageCircle className="w-5 h-5 mr-2" />
+            Mensajes y Tareas Pendientes
+          </CardTitle>
+          <div className="flex space-x-1">
+            <Button
+              variant={selectedTab === "conversations" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedTab("conversations")}
+            >
+              Mensajes ({conversations.length})
+            </Button>
+            <Button
+              variant={selectedTab === "tasks" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedTab("tasks")}
+            >
+              Tareas ({tasks.length})
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-4">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           </div>
-        ) : conversations.length === 0 ? (
-          <div className="text-center text-gray-500 py-4">
-            <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
-            <p className="text-sm">No hay conversaciones pendientes</p>
-          </div>
         ) : (
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {conversations.map((conv) => (
-              <div key={conv.id} className="flex items-start space-x-3 p-2 bg-gray-50 rounded">
-                <div className={`w-3 h-3 rounded-full mt-2 ${getUrgencyColor(conv.urgency_color)}`}></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{conv.contact_name}</p>
-                  <p className="text-xs text-gray-600 truncate">{conv.last_message}</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-xs text-gray-500">{conv.status_description}</span>
-                    {conv.pain_level && (
-                      <Badge variant="outline" className="text-xs">
-                        Dolor: {conv.pain_level}/10
-                      </Badge>
-                    )}
-                  </div>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {selectedTab === "conversations" ? (
+              conversations.length === 0 ? (
+                <div className="text-center text-gray-500 py-4">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
+                  <p className="text-sm">No hay conversaciones pendientes</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => markAsResolved(conv.id)}
-                  className="text-xs"
-                >
-                  <CheckCircle className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
+              ) : (
+                conversations.map((conv) => (
+                  <div key={conv.id} className="border-l-4 border-red-400 bg-gray-50 p-3 rounded-r">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${getUrgencyColor(conv.color_code)}`}></div>
+                        <span className="font-medium text-gray-900">{conv.patient_name}</span>
+                        <Badge className={`text-xs ${getUrgencyColor(conv.color_code)} text-white`}>
+                          {getUrgencyLabel(conv.color_code)}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">{formatTimeAgo(conv.created_at)}</span>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <p className="text-sm text-gray-700 mb-1">
+                        <strong>Resumen:</strong> {truncateText(conv.description)}
+                      </p>
+                      {conv.pain_level && (
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            Nivel de dolor: {conv.pain_level}/10
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <Phone className="w-3 h-3" />
+                        <span>{conv.patient_phone}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => markAsResolved(conv.id)}
+                        className="text-xs hover:bg-green-100 hover:text-green-700"
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Resolver
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )
+            ) : (
+              tasks.length === 0 ? (
+                <div className="text-center text-gray-500 py-4">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
+                  <p className="text-sm">No hay tareas pendientes</p>
+                </div>
+              ) : (
+                tasks.map((task) => (
+                  <div key={task.id} className="border rounded-lg p-3 hover:bg-gray-50">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${getUrgencyColor(task.color_code)}`}></div>
+                        <span className="font-medium text-gray-900">{task.patient_name}</span>
+                        <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
+                          {task.priority.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">{formatTimeAgo(task.created_at)}</span>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <p className="text-sm text-gray-700 mb-1">
+                        <strong>Tipo:</strong> {task.task_type.replace(/_/g, ' ').toUpperCase()}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {truncateText(task.description)}
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <Phone className="w-3 h-3" />
+                        <span>{task.patient_phone}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => markTaskCompleted(task.id)}
+                        className="text-xs hover:bg-green-100 hover:text-green-700"
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Completar
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
           </div>
         )}
       </CardContent>
