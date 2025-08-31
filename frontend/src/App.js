@@ -3337,15 +3337,42 @@ const Reminders = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex space-x-2">
-            <Button
-              onClick={allSelected ? deselectAllAppointments : selectAllAppointments}
-              variant="outline"
-              disabled={appointments.length === 0}
-            >
-              {allSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <div className="flex space-x-2">
+              <Button
+                onClick={allSelected ? deselectAllAppointments : selectAllAppointments}
+                variant={allSelected ? "default" : "outline"}
+                disabled={appointments.length === 0}
+                className={allSelected ? "bg-green-600 hover:bg-green-700" : "border-blue-500 text-blue-600 hover:bg-blue-50"}
+              >
+                {appointments.length > 0 ? (
+                  allSelected ? `✓ Todas seleccionadas (${appointments.length})` : `Seleccionar todas (${appointments.length})`
+                ) : (
+                  'Seleccionar todas'
+                )}
+              </Button>
+              
+              {selectedAppointments.length > 0 && (
+                <Button
+                  onClick={deselectAllAppointments}
+                  variant="ghost"
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  ✕ Limpiar selección
+                </Button>
+              )}
+            </div>
             
+            <div className="text-sm text-gray-600">
+              {appointments.length > 0 ? (
+                `${selectedAppointments.length} de ${appointments.length} citas seleccionadas`
+              ) : (
+                'No hay citas para esta fecha'
+              )}
+            </div>
+          </div>
+          
+          <div className="flex space-x-2">
             <Button
               onClick={sendReminders}
               disabled={loading || selectedAppointments.length === 0 || !selectedTemplate}
