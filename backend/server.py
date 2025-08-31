@@ -342,6 +342,42 @@ class ConversationStatus(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# WhatsApp Interactive Button Response Models
+class ButtonResponse(BaseModel):
+    phone_number: str
+    button_id: str
+    selected_text: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ConsentResponse(BaseModel):
+    patient_id: str
+    patient_name: str
+    treatment_code: int
+    consent_type: str  # 'treatment' or 'lopd'
+    response: str  # 'accepted', 'needs_explanation', 'declined'
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SurveyResponse(BaseModel):
+    patient_id: str
+    patient_name: str
+    phone_number: str
+    responses: Dict[str, str]  # Question-answer pairs
+    pain_level: Optional[int] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DashboardTask(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    task_type: str  # 'consent_follow_up', 'reschedule_request', 'survey_review'
+    patient_name: str
+    patient_phone: str
+    description: str
+    priority: str = "medium"  # 'high', 'medium', 'low'
+    color_code: str = "yellow"  # 'red', 'yellow', 'green', 'gray'
+    status: str = "pending"  # 'pending', 'in_progress', 'completed'
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    assigned_to: Optional[str] = None
+    notes: Optional[str] = None
+
 # Treatment and Consent Management Models
 class TreatmentCode(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
