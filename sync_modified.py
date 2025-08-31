@@ -84,22 +84,30 @@ def send_to_google_sheets(data):
             datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Timestamp de inserción
         ]
         
-        # LÓGICA DEL ROUTER DE MAKE.COM: Nueva vs Modificada
-        fecha_alta = data.get('FechaAlta', '')
-        fecha_modificacion = data.get('CitMod', '')
+        # LÓGICA EXACTA DEL ROUTER DE MAKE.COM
+        fecha_alta = data.get('FechaAlta', '').strip()
+        fecha_modificacion = data.get('CitMod', '').strip()
+        registro_id = data.get('Registro', '')
         
-        if fecha_alta == fecha_modificacion:
-            # CITA NUEVA - Añadir fila nueva
-            sheet.append_row(row_data)
-            log_message(f"✅ Google Sheets: Registro {data['Registro']} AÑADIDO como nueva cita")
-        else:
-            # CITA MODIFICADA - Buscar y actualizar fila existente
-            if update_existing_row(sheet, data['Registro'], row_data):
-                log_message(f"✅ Google Sheets: Registro {data['Registro']} ACTUALIZADO en fila existente")
+        # Primero buscar si el registro ya existe
+        existing_row_number = find_existing_row(sheet, registro_id)
+        
+        if fecha_alta != fecha_modificacion and existing_row_number:
+            # CONDICIÓN 1: CITA MODIFICADA (FechaAlta != CitMod Y existe)
+            if update_existing_row_by_number(sheet, existing_row_number, row_data):
+                log_message(f"✅ Google Sheets: Registro {registro_id} ACTUALIZADO (cita modificada)")
             else:
-                # Si no encuentra la fila, la añade como nueva (fallback)
-                sheet.append_row(row_data)
-                log_message(f"✅ Google Sheets: Registro {data['Registro']} AÑADIDO (no encontrado para actualizar)")
+                log_message(f"❌ Error actualizando registro {registro_id}")
+                
+        elif fecha_alta == fecha_modificacion or not existing_row_number:
+            # CONDICIÓN 2: CITA NUEVA (FechaAlta == CitMod O no existe)
+            sheet.append_row(row_data)
+            log_message(f"✅ Google Sheets: Registro {registro_id} AÑADIDO (cita nueva)")
+        
+        else:
+            # Fallback - no debería llegar aquí pero por seguridad
+            log_message(f"⚠️ Registro {registro_id} - condición no clara, añadiendo como nuevo")
+            sheet.append_row(row_data)
         
         return True
         
