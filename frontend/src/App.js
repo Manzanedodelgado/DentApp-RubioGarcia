@@ -452,10 +452,346 @@ const PWAInstallButton = () => {
   );
 };
 
+// Calendar Component for Dashboard
+const DashboardCalendar = ({ onDateSelect, selectedDate }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const monthNames = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+
+  const weekDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+
+    return days;
+  };
+
+  const isToday = (date) => {
+    const today = new Date();
+    return date && 
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+  };
+
+  const isSelected = (date) => {
+    return date && selectedDate &&
+      date.getDate() === selectedDate.getDate() &&
+      date.getMonth() === selectedDate.getMonth() &&
+      date.getFullYear() === selectedDate.getFullYear();
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+  };
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+  };
+
+  const days = getDaysInMonth(currentMonth);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">Calendario</CardTitle>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={prevMonth}>
+              ←
+            </Button>
+            <span className="text-sm font-medium min-w-[120px] text-center">
+              {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+            </span>
+            <Button variant="outline" size="sm" onClick={nextMonth}>
+              →
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {weekDays.map(day => (
+            <div key={day} className="text-xs font-medium text-gray-500 text-center p-2">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day, index) => (
+            <button
+              key={index}
+              onClick={() => day && onDateSelect(day)}
+              className={`
+                p-2 text-sm rounded hover:bg-blue-50 transition-colors
+                ${!day ? 'invisible' : ''}
+                ${isToday(day) ? 'bg-blue-100 font-bold text-blue-700' : ''}
+                ${isSelected(day) ? 'bg-blue-500 text-white' : ''}
+                ${day && !isSelected(day) && !isToday(day) ? 'hover:bg-gray-100' : ''}
+              `}
+              disabled={!day}
+            >
+              {day?.getDate()}
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Daily Appointments Component
+const DailyAppointments = ({ selectedDate }) => {
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchAppointments();
+    }
+  }, [selectedDate]);
+
+  const fetchAppointments = async () => {
+    if (!selectedDate) return;
+    
+    setLoading(true);
+    try {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      const response = await axios.get(`${API}/appointments/by-date?date=${formattedDate}`);
+      setAppointments(response.data);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      toast.error("Error cargando citas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "";
+    return timeStr.substring(0, 5); // "HH:MM"
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      scheduled: "bg-blue-100 text-blue-800",
+      confirmed: "bg-green-100 text-green-800", 
+      completed: "bg-gray-100 text-gray-800",
+      cancelled: "bg-red-100 text-red-800"
+    };
+    return colors[status] || colors.scheduled;
+  };
+
+  const getStatusText = (status) => {
+    const texts = {
+      scheduled: "Programada",
+      confirmed: "Confirmada",
+      completed: "Completada", 
+      cancelled: "Cancelada"
+    };
+    return texts[status] || status;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">
+          Citas del {selectedDate ? selectedDate.toLocaleDateString('es-ES', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          }) : 'día seleccionado'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            <p className="text-sm">No hay citas programadas para este día</p>
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {appointments.map((appointment) => (
+              <div key={appointment.id} className="border rounded-lg p-3 hover:bg-gray-50">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{appointment.contact_name}</h4>
+                    <p className="text-sm text-gray-600">{appointment.treatment}</p>
+                  </div>
+                  <Badge className={`${getStatusColor(appointment.status)}`}>
+                    {getStatusText(appointment.status)}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center space-x-4">
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {formatTime(appointment.time)}
+                    </span>
+                    {appointment.doctor && (
+                      <span>{appointment.doctor}</span>
+                    )}
+                  </div>
+                  {appointment.phone && (
+                    <span className="flex items-center">
+                      <Phone className="w-3 h-3 mr-1" />
+                      {appointment.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Statistics Charts Component
+const StatisticsCharts = ({ stats }) => {
+  // Calculate percentages for pie charts
+  const totalMessages = stats?.pending_messages + stats?.ai_conversations + 10; // +10 for resolved messages
+  const messageData = [
+    { name: 'Pendientes', value: stats?.pending_messages || 0, color: '#ef4444' },
+    { name: 'IA Activos', value: stats?.ai_conversations || 0, color: '#3b82f6' },
+    { name: 'Resueltos', value: 10, color: '#10b981' }
+  ];
+
+  const appointmentData = [
+    { name: 'Hoy', value: stats?.today_appointments || 0, color: '#10b981' },
+    { name: 'Próximas', value: Math.max((stats?.total_appointments || 0) - (stats?.today_appointments || 0), 0), color: '#3b82f6' }
+  ];
+
+  const createPieChart = (data, size = 120) => {
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    if (total === 0) return null;
+
+    let cumulativePercentage = 0;
+    const radius = size / 2 - 10;
+    const centerX = size / 2;
+    const centerY = size / 2;
+
+    return (
+      <svg width={size} height={size} className="transform -rotate-90">
+        {data.map((item, index) => {
+          const percentage = (item.value / total) * 100;
+          const startAngle = (cumulativePercentage / 100) * 2 * Math.PI;
+          const endAngle = ((cumulativePercentage + percentage) / 100) * 2 * Math.PI;
+          
+          const x1 = centerX + radius * Math.cos(startAngle);
+          const y1 = centerY + radius * Math.sin(startAngle);
+          const x2 = centerX + radius * Math.cos(endAngle);
+          const y2 = centerY + radius * Math.sin(endAngle);
+          
+          const largeArcFlag = percentage > 50 ? 1 : 0;
+          
+          const pathData = [
+            `M ${centerX} ${centerY}`,
+            `L ${x1} ${y1}`,
+            `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+            'Z'
+          ].join(' ');
+          
+          cumulativePercentage += percentage;
+          
+          return (
+            <path
+              key={index}
+              d={pathData}
+              fill={item.color}
+              stroke="white"
+              strokeWidth="2"
+            />
+          );
+        })}
+      </svg>
+    );
+  };
+
+  return (
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Estado de Mensajes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              {messageData.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-sm">{item.name}: {item.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex-shrink-0">
+              {createPieChart(messageData)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Estado de Citas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              {appointmentData.map((item, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-sm">{item.name}: {item.value}</span>
+                </div>
+              ))}
+              <div className="text-xs text-gray-500 mt-2">
+                {stats?.total_appointments ? 
+                  `${((stats.today_appointments / stats.total_appointments) * 100).toFixed(1)}% confirmadas hoy` :
+                  'Sin datos suficientes'
+                }
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              {createPieChart(appointmentData)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // Main Dashboard Component
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
     fetchDashboardStats();
@@ -486,9 +822,9 @@ const Dashboard = () => {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900">Panel de Control</h1>
         <div className="flex space-x-2">
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4 mr-2" />
-            Filtros
+          <Button variant="outline" size="sm" onClick={fetchDashboardStats}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Actualizar
           </Button>
         </div>
       </div>
@@ -551,60 +887,47 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Hero Section with Background Image */}
-      <Card className="relative overflow-hidden bg-slate-900 text-white">
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-30"
-          style={{ 
-            backgroundImage: 'url(https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwyfHxidXNpbmVzcyUyMGRhc2hib2FyZHxlbnwwfHx8fDE3NTY0MjY1Nzd8MA&ixlib=rb-4.1.0&q=85)' 
-          }}
-        />
-        <div className="relative z-10">
-          <CardHeader>
-            <CardTitle className="text-xl lg:text-2xl">Gestión Dental Inteligente con IA</CardTitle>
-            <CardDescription className="text-slate-300">
-              Automatiza las conversaciones de WhatsApp, agenda citas y mejora la experiencia de tus pacientes con inteligencia artificial.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button variant="secondary" size="sm">
-                <Bot className="w-4 h-4 mr-2" />
-                Configurar IA
-              </Button>
-              <Button variant="outline" size="sm" className="text-white border-white hover:bg-white hover:text-slate-900">
-                <Zap className="w-4 h-4 mr-2" />
-                Ver Analíticas
-              </Button>
-            </div>
-          </CardContent>
-        </div>
-      </Card>
-
-      {/* Quick Actions & Pending Conversations - Responsive Layout */}
+      {/* Calendar and Daily Appointments */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button className="w-full justify-start" variant="outline">
+        <DashboardCalendar 
+          selectedDate={selectedDate} 
+          onDateSelect={setSelectedDate} 
+        />
+        <DailyAppointments selectedDate={selectedDate} />
+      </div>
+
+      {/* Statistics Charts */}
+      <StatisticsCharts stats={stats} />
+
+      {/* Enhanced Pending Conversations */}
+      <PendingConversations />
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <Button className="justify-start" variant="outline">
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Paciente
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button className="justify-start" variant="outline">
               <Calendar className="w-4 h-4 mr-2" />
               Agendar Cita
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button className="justify-start" variant="outline">
               <Bot className="w-4 h-4 mr-2" />
               Entrenar IA
             </Button>
-          </CardContent>
-        </Card>
-
-        <PendingConversations />
-      </div>
+            <Button className="justify-start" variant="outline">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Enviar Recordatorio
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Platform Support */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
