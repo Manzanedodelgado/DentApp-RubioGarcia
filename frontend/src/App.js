@@ -2578,6 +2578,96 @@ const WhatsAppCommunications = () => {
           </div>
         </div>
       )}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Conectar WhatsApp</h3>
+              <Button
+                onClick={() => {
+                  setShowQRModal(false);
+                  setQRCode(null);
+                }}
+                variant="ghost"
+                size="sm"
+                className="p-1"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <div className="text-center">
+              {loadingQR ? (
+                <div className="flex flex-col items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+                  <p className="text-gray-600">Obteniendo código QR...</p>
+                </div>
+              ) : qrCode ? (
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`}
+                      alt="WhatsApp QR Code"
+                      className="w-48 h-48"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700 font-medium">
+                      1. Abre WhatsApp en tu teléfono
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      2. Ve a Configuración > Dispositivos vinculados
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      3. Toca "Vincular un dispositivo"
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      4. Escanea este código QR
+                    </p>
+                  </div>
+                  <Button
+                    onClick={fetchQRCode}
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Actualizar QR
+                  </Button>
+                </div>
+              ) : (
+                <div className="py-8">
+                  <div className="text-gray-400 mb-4">
+                    <div className="w-16 h-16 mx-auto border-2 border-gray-300 rounded-lg flex items-center justify-center">
+                      <X className="w-8 h-8" />
+                    </div>
+                  </div>
+                  <p className="text-gray-600 mb-4">No hay código QR disponible</p>
+                  <Button
+                    onClick={reconnectWhatsApp}
+                    disabled={reconnecting}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {reconnecting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                        Reconectando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Intentar Reconectar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
