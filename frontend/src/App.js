@@ -1870,6 +1870,10 @@ const WhatsAppCommunications = () => {
   const [filterBy, setFilterBy] = useState('all'); // all, pending, urgent
   const [patientHistory, setPatientHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCode, setQRCode] = useState(null);
+  const [loadingQR, setLoadingQR] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
