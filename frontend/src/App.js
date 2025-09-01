@@ -2359,6 +2359,81 @@ const WhatsAppCommunications = () => {
         )}
       </div>
 
+      {/* Right Panel - Patient History */}
+      {selectedConversation && (
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+          {/* History Header */}
+          <div className="p-4 bg-blue-600 text-white border-b border-blue-500">
+            <h3 className="text-lg font-semibold mb-1">Historial del Paciente</h3>
+            <p className="text-blue-200 text-sm">{selectedConversation.patient_name || 'Usuario'}</p>
+          </div>
+
+          {/* History Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : patientHistory.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-sm">No hay citas registradas</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Las citas aparecerán aquí cuando estén disponibles
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Últimas 5 Citas</h4>
+                {patientHistory.map((appointment, index) => (
+                  <div key={appointment.id || index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h5 className="font-medium text-gray-900 text-sm">
+                          {appointment.title || 'Cita médica'}
+                        </h5>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {formatAppointmentDate(appointment.date)}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {appointment.status === 'completed' ? 'Completada' :
+                         appointment.status === 'cancelled' ? 'Cancelada' : 'Programada'}
+                      </span>
+                    </div>
+                    
+                    {appointment.treatment && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-gray-700">Tratamiento:</p>
+                        <p className="text-xs text-gray-600">{appointment.treatment}</p>
+                      </div>
+                    )}
+                    
+                    {appointment.doctor && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-gray-700">Doctor:</p>
+                        <p className="text-xs text-gray-600">{appointment.doctor}</p>
+                      </div>
+                    )}
+                    
+                    {appointment.notes && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-700">Notas:</p>
+                        <p className="text-xs text-gray-600">{appointment.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* New Conversation Dialog */}
       {showNewConversation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
