@@ -3302,6 +3302,9 @@ async def get_patient_appointment_history(conversation_id: str):
         
         return {"appointments": appointments}
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 404) without modification
+        raise
     except Exception as e:
         logger.error(f"Error fetching patient appointment history: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching patient appointment history")
