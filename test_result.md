@@ -58,7 +58,7 @@
 ##
 ## agent_communication:
 ##    - agent: "main"
-##    - message: "Starting comprehensive deep testing of all implemented features: Dashboard calendar, WhatsApp messaging, user management, voice assistant, communications interface, and bidirectional sync. Will perform exhaustive backend testing first, then detailed frontend validation with edge cases and error handling."
+##    - message: "CRITICAL WHATSAPP ISSUE IDENTIFIED: Messages not sending due to WhatsApp service being disconnected. Service is running but needs QR code scanning to connect. This explains the single check mark (✓) instead of double check (✓✓). Working on interface improvements while diagnosing connection issues."
 
 ## test_plan:
 ##  current_focus:
