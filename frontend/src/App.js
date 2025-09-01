@@ -2048,6 +2048,18 @@ const WhatsAppCommunications = () => {
     }
   };
 
+  // Format appointment date for display
+  const formatAppointmentDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   // Get urgency color classes - Corporate Blue Theme
   const getUrgencyColor = (color) => {
     const colors = {
