@@ -330,6 +330,8 @@ class DashboardStats(BaseModel):
 class VoiceAssistantRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    platform: Optional[str] = None
+    phone_number: Optional[str] = None
 
 class VoiceAssistantResponse(BaseModel):
     response: str
