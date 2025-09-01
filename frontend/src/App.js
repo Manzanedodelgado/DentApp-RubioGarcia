@@ -781,11 +781,6 @@ const DailyAppointments = ({ selectedDate }) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Debug info - remove in production */}
-        <div className="text-xs text-gray-400 mb-2">
-          Debug: {appointments ? appointments.length : 'null'} citas cargadas, Loading: {loading ? 'true' : 'false'}
-        </div>
-        
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -794,11 +789,6 @@ const DailyAppointments = ({ selectedDate }) => {
           <div className="text-center text-gray-500 py-8">
             <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
             <p className="text-sm">No hay citas programadas para este día</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {appointments === null ? 'appointments is null' : 
-               appointments === undefined ? 'appointments is undefined' : 
-               `appointments array length: ${appointments.length}`}
-            </p>
           </div>
         ) : (
           <div className="space-y-3 max-h-64 overflow-y-auto">
