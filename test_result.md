@@ -58,7 +58,7 @@
 ##
 ## agent_communication:
 ##    - agent: "main"
-##    - message: "CRITICAL WHATSAPP ISSUE IDENTIFIED: Messages not sending due to WhatsApp service being disconnected. Service is running but needs QR code scanning to connect. This explains the single check mark (✓) instead of double check (✓✓). Working on interface improvements while diagnosing connection issues."
+##    - message: "✅ PATIENT HISTORY FEATURE SUCCESSFULLY IMPLEMENTED: Added right panel in WhatsApp Communications showing last 5 appointments with treatment and notes. Backend endpoint tested and working. Frontend displays 'Historial del Paciente' panel with appointment data when conversation is selected. Login working with JMD/190582. WhatsApp needs QR scan for message sending. Feature is production-ready."
 
 ## test_plan:
 ##  current_focus:
