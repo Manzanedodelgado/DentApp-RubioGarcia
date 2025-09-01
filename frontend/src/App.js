@@ -2099,9 +2099,13 @@ const WhatsAppCommunications = () => {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id);
+      fetchPatientHistory(selectedConversation.id);
       // Refresh messages every 10 seconds when a conversation is selected
       const messageInterval = setInterval(() => fetchMessages(selectedConversation.id), 10000);
       return () => clearInterval(messageInterval);
+    } else {
+      // Clear history when no conversation is selected
+      setPatientHistory([]);
     }
   }, [selectedConversation]);
 
