@@ -1854,22 +1854,26 @@ const UserManagement = () => {
   );
 };
 
-// Simplified WhatsApp Communications Interface
-const UnifiedWhatsAppInterface = () => {
+// WhatsApp Communications Component - Corporate Colors (Blue)
+const WhatsAppCommunications = () => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [showNewConversation, setShowNewConversation] = useState(false);
+  const [newContactPhone, setNewContactPhone] = useState('');
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false });
-  const [showNewChat, setShowNewChat] = useState(false);
-  const [newPhone, setNewPhone] = useState('');
+  const [sortBy, setSortBy] = useState('time'); // time, name, status
+  const [filterBy, setFilterBy] = useState('all'); // all, pending, urgent
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
 
   // Fetch WhatsApp status
-  const fetchStatus = async () => {
+  const fetchWhatsAppStatus = async () => {
     try {
       const response = await axios.get(`${API}/whatsapp/status`);
       setWhatsappStatus(response.data || { connected: false });
@@ -1879,7 +1883,7 @@ const UnifiedWhatsAppInterface = () => {
     }
   };
 
-  // Fetch conversations
+  // Fetch all conversations
   const fetchConversations = async () => {
     try {
       setLoading(true);
@@ -1887,22 +1891,37 @@ const UnifiedWhatsAppInterface = () => {
       setConversations(response.data || []);
     } catch (error) {
       console.error("Error fetching conversations:", error);
+      toast.error("Error cargando conversaciones");
       setConversations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Send message
+  // Fetch messages for selected conversation
+  const fetchMessages = async (conversationId) => {
+    try {
+      const response = await axios.get(`${API}/conversations/${conversationId}/messages`);
+      setMessages(response.data || []);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      toast.error("Error cargando mensajes");
+      setMessages([]);
+    }
+  };
+
+  // Send message to selected conversation
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-    
+    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
+
+    setSendingMessage(true);
     try {
       const response = await axios.post(`${API}/conversations/${selectedConversation.id}/send-message`, {
         message: newMessage.trim()
       });
 
       if (response.data.success) {
+        // Add message to local state immediately
         const newMsg = {
           id: Date.now(),
           message: newMessage.trim(),
@@ -1912,230 +1931,445 @@ const UnifiedWhatsAppInterface = () => {
         };
         setMessages(prev => [...prev, newMsg]);
         setNewMessage('');
-        toast.success("Mensaje enviado");
+        toast.success("Mensaje enviado correctamente");
+        
+        // Refresh conversations to update last message
         fetchConversations();
       }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Error enviando mensaje");
+    } finally {
+      setSendingMessage(false);
     }
   };
 
   // Start new conversation
-  const startNewChat = async () => {
-    if (!newPhone.trim()) return;
+  const startNewConversation = async () => {
+    if (!newContactPhone.trim()) return;
 
     try {
+      // Check if conversation already exists
+      const existingConv = conversations.find(c => c.patient_phone === newContactPhone.trim());
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setShowNewConversation(false);
+        setNewContactPhone('');
+        toast.info("Conversación existente seleccionada");
+        return;
+      }
+
+      // Send first message to create conversation
       const response = await axios.post(`${API}/whatsapp/send`, {
-        phone_number: newPhone.trim(),
-        message: "Hola, ¿en qué podemos ayudarle?"
+        phone_number: newContactPhone.trim(),
+        message: "Hola, somos Rubio García Dental. ¿En qué podemos ayudarle?"
       });
 
       if (response.data.success) {
         toast.success("Nueva conversación iniciada");
-        setShowNewChat(false);
-        setNewPhone('');
-        fetchConversations();
+        setShowNewConversation(false);
+        setNewContactPhone('');
+        setTimeout(() => {
+          fetchConversations(); // Refresh to show new conversation
+        }, 1000);
       }
     } catch (error) {
-      console.error("Error starting conversation:", error);
+      console.error("Error starting new conversation:", error);
       toast.error("Error iniciando conversación");
     }
   };
 
-  // Format time
+  // Filter and sort conversations
+  const getFilteredAndSortedConversations = () => {
+    let filtered = conversations.filter(conv => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        conv.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.patient_phone?.includes(searchTerm) ||
+        conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Status filter
+      const matchesFilter = filterBy === 'all' || 
+        (filterBy === 'pending' && conv.pending_response) ||
+        (filterBy === 'urgent' && ['red', 'black'].includes(conv.urgency_color));
+
+      return matchesSearch && matchesFilter;
+    });
+
+    // Sort conversations
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return (a.patient_name || 'Z').localeCompare(b.patient_name || 'Z');
+        case 'status':
+          const urgencyOrder = { red: 1, black: 2, yellow: 3, gray: 4, green: 5 };
+          return (urgencyOrder[a.urgency_color] || 4) - (urgencyOrder[b.urgency_color] || 4);
+        case 'time':
+        default:
+          return new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0);
+      }
+    });
+
+    return filtered;
+  };
+
+  // Format time for display
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  };
+
+  // Get urgency color classes - Corporate Blue Theme
+  const getUrgencyColor = (color) => {
+    const colors = {
+      red: "border-l-red-500 bg-red-50",
+      black: "border-l-gray-800 bg-gray-100",
+      yellow: "border-l-yellow-500 bg-yellow-50",
+      gray: "border-l-gray-300 bg-gray-50",
+      green: "border-l-blue-500 bg-blue-50"
+    };
+    return colors[color] || colors.gray;
+  };
+
+  const getUrgencyBadge = (color) => {
+    const badges = {
+      red: "bg-red-500 text-white",
+      black: "bg-gray-800 text-white",
+      yellow: "bg-yellow-500 text-white",
+      gray: "bg-gray-400 text-white",
+      green: "bg-blue-500 text-white"
+    };
+    return badges[color] || badges.gray;
+  };
+
+  const getUrgencyLabel = (color) => {
+    const labels = {
+      red: "URGENTE",
+      black: "ALTA",
+      yellow: "MEDIA",
+      gray: "NORMAL", 
+      green: "RESUELTA"
+    };
+    return labels[color] || "NORMAL";
   };
 
   useEffect(() => {
-    fetchStatus();
+    fetchWhatsAppStatus();
     fetchConversations();
-    const interval = setInterval(() => {
-      fetchStatus();
-      fetchConversations();
-    }, 30000);
-    return () => clearInterval(interval);
+    
+    // Refresh data periodically
+    const statusInterval = setInterval(fetchWhatsAppStatus, 30000);
+    const conversationsInterval = setInterval(fetchConversations, 30000);
+    
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(conversationsInterval);
+    };
   }, []);
 
   useEffect(() => {
     if (selectedConversation) {
-      const fetchMessages = async () => {
-        try {
-          const response = await axios.get(`${API}/conversations/${selectedConversation.id}/messages`);
-          setMessages(response.data || []);
-        } catch (error) {
-          console.error("Error fetching messages:", error);
-          setMessages([]);
-        }
-      };
-      fetchMessages();
+      fetchMessages(selectedConversation.id);
+      // Refresh messages every 10 seconds when a conversation is selected
+      const messageInterval = setInterval(() => fetchMessages(selectedConversation.id), 10000);
+      return () => clearInterval(messageInterval);
     }
   }, [selectedConversation]);
 
+  const filteredConversations = getFilteredAndSortedConversations();
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      {/* Header */}
-      <div className="bg-green-600 text-white p-4 rounded-lg mb-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">WhatsApp Business</h1>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-green-300' : 'bg-red-300'}`}></div>
-            <span className="text-sm">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
+    <div className="h-screen flex bg-gray-100">
+      {/* Left Panel - Conversations List */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        {/* Header - Corporate Blue */}
+        <div className="p-4 bg-blue-600 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Comunicaciones</h2>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-blue-300' : 'bg-red-300'}`}></div>
+              <span className="text-xs">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
+            </div>
           </div>
+          
+          {/* Search Bar - Corporate Blue */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-blue-300" />
+            <input
+              type="text"
+              placeholder="Buscar conversaciones..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-blue-500 text-white placeholder-blue-300 rounded-lg border-0 focus:ring-2 focus:ring-blue-300"
+            />
+          </div>
+
+          {/* Filters and Sort */}
+          <div className="flex space-x-2">
+            <select
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value)}
+              className="flex-1 px-2 py-1 bg-blue-500 text-white text-xs rounded border-0 focus:ring-1 focus:ring-blue-300"
+            >
+              <option value="all">Todas</option>
+              <option value="pending">Pendientes</option>
+              <option value="urgent">Urgentes</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="flex-1 px-2 py-1 bg-blue-500 text-white text-xs rounded border-0 focus:ring-1 focus:ring-blue-300"
+            >
+              <option value="time">Por Hora</option>
+              <option value="name">Por Nombre</option>
+              <option value="status">Por Estado</option>
+            </select>
+          </div>
+        </div>
+
+        {/* New Conversation Button - Corporate Blue */}
+        <div className="p-3 border-b border-gray-100">
+          <Button 
+            onClick={() => setShowNewConversation(true)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Conversación
+          </Button>
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-sm">
+                {searchTerm || filterBy !== 'all' ? 'No se encontraron conversaciones' : 'No hay conversaciones disponibles'}
+              </p>
+              <p className="text-xs mt-1 text-gray-400">
+                Haz clic en "Nueva Conversación" para empezar
+              </p>
+            </div>
+          ) : (
+            filteredConversations.map((conversation) => (
+              <div
+                key={conversation.id}
+                onClick={() => setSelectedConversation(conversation)}
+                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${
+                  getUrgencyColor(conversation.urgency_color)
+                } ${selectedConversation?.id === conversation.id ? 'bg-blue-50' : ''}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2 flex-1">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {conversation.patient_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 truncate text-sm">
+                        {conversation.patient_name || 'Usuario'}
+                      </h4>
+                      <p className="text-xs text-gray-500 truncate">
+                        {conversation.patient_phone}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-500">{formatTime(conversation.last_message_time)}</span>
+                    {conversation.urgency_color !== 'gray' && conversation.urgency_color !== 'green' && (
+                      <div className={`mt-1 px-1 py-0.5 rounded text-xs ${getUrgencyBadge(conversation.urgency_color)}`}>
+                        {getUrgencyLabel(conversation.urgency_color)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-600 truncate mb-1">
+                  {conversation.last_message || 'Sin mensajes'}
+                </p>
+                
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>{conversation.message_count || 0} mensajes</span>
+                  {conversation.pending_response && (
+                    <div className="flex items-center text-orange-600">
+                      <Clock className="w-3 h-3 mr-1" />
+                      <span>Pendiente</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* New Conversation Button */}
-      <div className="mb-4">
-        <Button 
-          onClick={() => setShowNewChat(true)}
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Conversación
-        </Button>
-      </div>
-
-      {/* Conversations List */}
-      <div className="space-y-2 mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Conversaciones</h2>
-        {loading ? (
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
-          </div>
-        ) : conversations.length === 0 ? (
-          <Card className="p-6 text-center">
-            <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500">No hay conversaciones disponibles</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Haz clic en "Nueva Conversación" para empezar
-            </p>
-          </Card>
-        ) : (
-          conversations.map((conv) => (
-            <Card 
-              key={conv.id} 
-              className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${
-                selectedConversation?.id === conv.id ? 'ring-2 ring-green-500' : ''
-              }`}
-              onClick={() => setSelectedConversation(conv)}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-gray-900">
-                  {conv.patient_name || 'Usuario'}
-                </h3>
-                <span className="text-xs text-gray-500">
-                  {formatTime(conv.last_message_time)}
-                </span>
+      {/* Center Panel - Chat Area */}
+      <div className="flex-1 flex flex-col bg-gray-50">
+        {selectedConversation ? (
+          <>
+            {/* Chat Header - Corporate Blue */}
+            <div className="p-4 bg-white border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                    {selectedConversation.patient_name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {selectedConversation.patient_name || 'Usuario'}
+                    </h3>
+                    <p className="text-sm text-gray-600">{selectedConversation.patient_phone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button variant="ghost" size="sm">
+                    <Phone className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Search className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
-              <p className="text-xs text-gray-500 mt-1">{conv.patient_phone}</p>
-            </Card>
-          ))
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-sm">No hay mensajes en esta conversación</p>
+                  <p className="text-xs text-gray-400 mt-1">Envía el primer mensaje para comenzar</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === 'clinic' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender === 'clinic'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm">{message.message}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender === 'clinic' ? 'text-blue-100' : 'text-gray-500'
+                      }`}>
+                        {formatTime(message.timestamp)}
+                        {message.sender === 'clinic' && (
+                          <span className="ml-2">
+                            {message.status === 'sent' ? '✓' : '⏳'}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input - Corporate Blue */}
+            <div className="p-4 bg-white border-t border-gray-200">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Escriba su mensaje..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={sendingMessage || !whatsappStatus.connected}
+                />
+                <Button
+                  onClick={sendMessage}
+                  disabled={!newMessage.trim() || sendingMessage || !whatsappStatus.connected}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-6"
+                >
+                  {sendingMessage ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-medium mb-2">Rubio García Dental</h3>
+              <p className="text-sm">Selecciona una conversación para comenzar a chatear</p>
+              <p className="text-xs text-gray-400 mt-2">
+                También puedes iniciar una nueva conversación con un paciente
+              </p>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Selected Conversation */}
-      {selectedConversation && (
-        <Card className="p-4">
-          <div className="mb-4">
-            <h3 className="font-semibold text-gray-900">
-              {selectedConversation.patient_name || 'Usuario'}
-            </h3>
-            <p className="text-sm text-gray-600">{selectedConversation.patient_phone}</p>
-          </div>
-
-          {/* Messages */}
-          <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-            {messages.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">No hay mensajes</p>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'clinic' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs px-3 py-2 rounded-lg ${
-                      message.sender === 'clinic'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-white border border-gray-300'
-                    }`}
-                  >
-                    <p className="text-sm">{message.message}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.sender === 'clinic' ? 'text-green-100' : 'text-gray-500'
-                    }`}>
-                      {formatTime(message.timestamp)}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Message Input */}
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Escriba su mensaje..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              disabled={!whatsappStatus.connected}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!newMessage.trim() || !whatsappStatus.connected}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* New Chat Dialog */}
-      {showNewChat && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md p-6">
+      {/* New Conversation Dialog */}
+      {showNewConversation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Nueva Conversación</h3>
             <div className="space-y-4">
               <div>
-                <Label>Número de teléfono</Label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número de teléfono
+                </label>
                 <input
                   type="text"
-                  value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="+34648085696"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  value={newContactPhone}
+                  onChange={(e) => setNewContactPhone(e.target.value)}
+                  placeholder="+34 XXX XXX XXX"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Introduce el número con código de país (ej: +34648085696)
+                </p>
               </div>
+              
               <div className="flex space-x-3">
                 <Button
-                  variant="outline"
                   onClick={() => {
-                    setShowNewChat(false);
-                    setNewPhone('');
+                    setShowNewConversation(false);
+                    setNewContactPhone('');
                   }}
+                  variant="outline"
                   className="flex-1"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  onClick={startNewChat}
-                  disabled={!newPhone.trim()}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={startNewConversation}
+                  disabled={!newContactPhone.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
-                  Iniciar
+                  Iniciar Chat
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>
