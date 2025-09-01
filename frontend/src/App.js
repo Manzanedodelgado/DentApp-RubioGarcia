@@ -2618,7 +2618,7 @@ const WhatsAppCommunications = () => {
                       1. Abre WhatsApp en tu teléfono
                     </p>
                     <p className="text-sm text-gray-700">
-                      2. Ve a Configuración > Dispositivos vinculados
+                      2. Ve a Configuración &gt; Dispositivos vinculados
                     </p>
                     <p className="text-sm text-gray-700">
                       3. Toca "Vincular un dispositivo"
