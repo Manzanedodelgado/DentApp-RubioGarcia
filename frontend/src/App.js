@@ -1907,35 +1907,32 @@ const UserManagement = () => {
   );
 };
 
-// Unified WhatsApp Communications Interface (Based on WhatsApp Business)
+// Simplified WhatsApp Communications Interface
 const UnifiedWhatsAppInterface = () => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [patients, setPatients] = useState([]);
-  const [showNewConversation, setShowNewConversation] = useState(false);
-  const [newContactPhone, setNewContactPhone] = useState('');
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false });
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
 
   // Fetch WhatsApp status
-  const fetchWhatsAppStatus = async () => {
+  const fetchStatus = async () => {
     try {
       const response = await axios.get(`${API}/whatsapp/status`);
-      setWhatsappStatus(response.data);
+      setWhatsappStatus(response.data || { connected: false });
     } catch (error) {
       console.error("Error fetching WhatsApp status:", error);
-      setWhatsappStatus({ connected: false, status: 'error' });
+      setWhatsappStatus({ connected: false });
     }
   };
 
-  // Fetch all conversations
+  // Fetch conversations
   const fetchConversations = async () => {
     try {
       setLoading(true);
@@ -1943,48 +1940,22 @@ const UnifiedWhatsAppInterface = () => {
       setConversations(response.data || []);
     } catch (error) {
       console.error("Error fetching conversations:", error);
-      toast.error("Error cargando conversaciones");
       setConversations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch all patients for search
-  const fetchPatients = async () => {
-    try {
-      const response = await axios.get(`${API}/contacts`);
-      setPatients(response.data || []);
-    } catch (error) {
-      console.error("Error fetching patients:", error);
-      setPatients([]);
-    }
-  };
-
-  // Fetch messages for selected conversation
-  const fetchMessages = async (conversationId) => {
-    try {
-      const response = await axios.get(`${API}/conversations/${conversationId}/messages`);
-      setMessages(response.data || []);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      toast.error("Error cargando mensajes");
-      setMessages([]);
-    }
-  };
-
-  // Send message to selected conversation
+  // Send message
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
-
-    setSendingMessage(true);
+    if (!newMessage.trim() || !selectedConversation) return;
+    
     try {
       const response = await axios.post(`${API}/conversations/${selectedConversation.id}/send-message`, {
         message: newMessage.trim()
       });
 
       if (response.data.success) {
-        // Add message to local state immediately
         const newMsg = {
           id: Date.now(),
           message: newMessage.trim(),
@@ -1994,452 +1965,230 @@ const UnifiedWhatsAppInterface = () => {
         };
         setMessages(prev => [...prev, newMsg]);
         setNewMessage('');
-        toast.success("Mensaje enviado correctamente");
-        
-        // Refresh conversations to update last message
+        toast.success("Mensaje enviado");
         fetchConversations();
       }
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Error enviando mensaje");
-    } finally {
-      setSendingMessage(false);
     }
   };
 
   // Start new conversation
-  const startNewConversation = async () => {
-    if (!newContactPhone.trim()) return;
+  const startNewChat = async () => {
+    if (!newPhone.trim()) return;
 
     try {
-      // Check if conversation already exists
-      const existingConv = conversations.find(c => c.patient_phone === newContactPhone.trim());
-      if (existingConv) {
-        setSelectedConversation(existingConv);
-        setShowNewConversation(false);
-        setNewContactPhone('');
-        return;
-      }
-
-      // Send first message to create conversation
       const response = await axios.post(`${API}/whatsapp/send`, {
-        phone_number: newContactPhone.trim(),
+        phone_number: newPhone.trim(),
         message: "Hola, ¿en qué podemos ayudarle?"
       });
 
       if (response.data.success) {
         toast.success("Nueva conversación iniciada");
-        setShowNewConversation(false);
-        setNewContactPhone('');
-        fetchConversations(); // Refresh to show new conversation
+        setShowNewChat(false);
+        setNewPhone('');
+        fetchConversations();
       }
     } catch (error) {
-      console.error("Error starting new conversation:", error);
+      console.error("Error starting conversation:", error);
       toast.error("Error iniciando conversación");
     }
   };
 
-  // Filter conversations based on search
-  const filteredConversations = conversations.filter(conv => 
-    conv.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.patient_phone?.includes(searchTerm) ||
-    conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Format time for display
+  // Format time
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    
-    if (isToday) {
-      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return date.toLocaleDateString('es-ES', { 
-        day: '2-digit', 
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-  };
-
-  // Get urgency color classes
-  const getUrgencyColor = (color) => {
-    const colors = {
-      red: "border-l-red-500 bg-red-50",
-      black: "border-l-gray-800 bg-gray-100",
-      yellow: "border-l-yellow-500 bg-yellow-50",
-      gray: "border-l-gray-300 bg-gray-50",
-      green: "border-l-green-500 bg-green-50"
-    };
-    return colors[color] || colors.gray;
-  };
-
-  const getUrgencyBadge = (color) => {
-    const badges = {
-      red: "bg-red-500 text-white",
-      black: "bg-gray-800 text-white",
-      yellow: "bg-yellow-500 text-white",
-      gray: "bg-gray-400 text-white",
-      green: "bg-green-500 text-white"
-    };
-    return badges[color] || badges.gray;
-  };
-
-  const getUrgencyLabel = (color) => {
-    const labels = {
-      red: "URGENTE",
-      black: "ALTA",
-      yellow: "MEDIA",
-      gray: "NORMAL", 
-      green: "RESUELTA"
-    };
-    return labels[color] || "NORMAL";
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
   useEffect(() => {
-    fetchWhatsAppStatus();
+    fetchStatus();
     fetchConversations();
-    fetchPatients();
-    
-    // Refresh data periodically
-    const statusInterval = setInterval(fetchWhatsAppStatus, 30000);
-    const conversationsInterval = setInterval(fetchConversations, 30000);
-    
-    return () => {
-      clearInterval(statusInterval);
-      clearInterval(conversationsInterval);
-    };
+    const interval = setInterval(() => {
+      fetchStatus();
+      fetchConversations();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (selectedConversation) {
-      fetchMessages(selectedConversation.id);
-      // Refresh messages every 10 seconds when a conversation is selected
-      const messageInterval = setInterval(() => fetchMessages(selectedConversation.id), 10000);
-      return () => clearInterval(messageInterval);
+      const fetchMessages = async () => {
+        try {
+          const response = await axios.get(`${API}/conversations/${selectedConversation.id}/messages`);
+          setMessages(response.data || []);
+        } catch (error) {
+          console.error("Error fetching messages:", error);
+          setMessages([]);
+        }
+      };
+      fetchMessages();
     }
   }, [selectedConversation]);
 
   return (
-    <div className="h-screen flex bg-gray-100">
-      {/* Left Panel - Conversations List */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="p-4 bg-green-600 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">WhatsApp Business</h2>
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-green-300' : 'bg-red-300'}`}></div>
-              <span className="text-xs">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
-            </div>
+    <div className="min-h-screen bg-gray-100 p-4">
+      {/* Header */}
+      <div className="bg-green-600 text-white p-4 rounded-lg mb-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">WhatsApp Business</h1>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-green-300' : 'bg-red-300'}`}></div>
+            <span className="text-sm">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
           </div>
-          
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-green-300" />
-            <input
-              type="text"
-              placeholder="Buscar conversaciones..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-green-500 text-white placeholder-green-300 rounded-lg border-0 focus:ring-2 focus:ring-green-300"
-            />
-          </div>
-        </div>
-
-        {/* New Conversation Button */}
-        <div className="p-3 border-b border-gray-100">
-          <Button 
-            onClick={() => setShowNewConversation(true)}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
-            size="sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Conversación
-          </Button>
-        </div>
-
-        {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
-            </div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-sm">
-                {searchTerm ? 'No se encontraron conversaciones' : 'No hay conversaciones disponibles'}
-              </p>
-              <p className="text-xs mt-1 text-gray-400">
-                Haz clic en "Nueva Conversación" para empezar
-              </p>
-            </div>
-          ) : (
-            filteredConversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                onClick={() => setSelectedConversation(conversation)}
-                className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${
-                  getUrgencyColor(conversation.urgency_color)
-                } ${selectedConversation?.id === conversation.id ? 'bg-blue-50' : ''}`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-2 flex-1">
-                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                      {conversation.patient_name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 truncate text-sm">
-                        {conversation.patient_name || 'Usuario'}
-                      </h4>
-                      <p className="text-xs text-gray-500 truncate">
-                        {conversation.patient_phone}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-gray-500">{formatTime(conversation.last_message_time)}</span>
-                    {conversation.urgency_color !== 'gray' && conversation.urgency_color !== 'green' && (
-                      <div className={`mt-1 px-1 py-0.5 rounded text-xs ${getUrgencyBadge(conversation.urgency_color)}`}>
-                        {getUrgencyLabel(conversation.urgency_color)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <p className="text-sm text-gray-600 truncate mb-1">
-                  {conversation.last_message || 'Sin mensajes'}
-                </p>
-                
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>{conversation.message_count || 0} mensajes</span>
-                  {conversation.pending_response && (
-                    <div className="flex items-center text-orange-600">
-                      <Clock className="w-3 h-3 mr-1" />
-                      <span>Pendiente</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </div>
 
-      {/* Center Panel - Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50">
-        {selectedConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="p-4 bg-white border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {selectedConversation.patient_name?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {selectedConversation.patient_name || 'Usuario'}
-                    </h3>
-                    <p className="text-sm text-gray-600">{selectedConversation.patient_phone}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Search className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+      {/* New Conversation Button */}
+      <div className="mb-4">
+        <Button 
+          onClick={() => setShowNewChat(true)}
+          className="w-full bg-green-600 hover:bg-green-700 text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Conversación
+        </Button>
+      </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-sm">No hay mensajes en esta conversación</p>
-                  <p className="text-xs text-gray-400 mt-1">Envía el primer mensaje para comenzar</p>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.sender === 'clinic' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.sender === 'clinic'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-white border border-gray-200 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.sender === 'clinic' ? 'text-green-100' : 'text-gray-500'
-                      }`}>
-                        {formatTime(message.timestamp)}
-                        {message.sender === 'clinic' && (
-                          <span className="ml-2">
-                            {message.status === 'sent' ? '✓' : '⏳'}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Message Input */}
-            <div className="p-4 bg-white border-t border-gray-200">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Escriba su mensaje..."
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  disabled={sendingMessage || !whatsappStatus.connected}
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim() || sendingMessage || !whatsappStatus.connected}
-                  className="bg-green-600 hover:bg-green-700 text-white rounded-full px-6"
-                >
-                  {sendingMessage ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium mb-2">Bienvenido a WhatsApp Business</h3>
-              <p className="text-sm">Selecciona una conversación para comenzar a chatear</p>
-              <p className="text-xs text-gray-400 mt-2">
-                También puedes iniciar una nueva conversación con un paciente
-              </p>
-            </div>
+      {/* Conversations List */}
+      <div className="space-y-2 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Conversaciones</h2>
+        {loading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
           </div>
+        ) : conversations.length === 0 ? (
+          <Card className="p-6 text-center">
+            <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <p className="text-gray-500">No hay conversaciones disponibles</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Haz clic en "Nueva Conversación" para empezar
+            </p>
+          </Card>
+        ) : (
+          conversations.map((conv) => (
+            <Card 
+              key={conv.id} 
+              className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${
+                selectedConversation?.id === conv.id ? 'ring-2 ring-green-500' : ''
+              }`}
+              onClick={() => setSelectedConversation(conv)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-gray-900">
+                  {conv.patient_name || 'Usuario'}
+                </h3>
+                <span className="text-xs text-gray-500">
+                  {formatTime(conv.last_message_time)}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 truncate">{conv.last_message}</p>
+              <p className="text-xs text-gray-500 mt-1">{conv.patient_phone}</p>
+            </Card>
+          ))
         )}
       </div>
 
-      {/* Right Panel - Contact Info */}
+      {/* Selected Conversation */}
       {selectedConversation && (
-        <div className="w-80 bg-white border-l border-gray-200 p-4">
-          <div className="text-center mb-6">
-            <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-3">
-              {selectedConversation.patient_name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <h3 className="font-semibold text-lg text-gray-900">
+        <Card className="p-4">
+          <div className="mb-4">
+            <h3 className="font-semibold text-gray-900">
               {selectedConversation.patient_name || 'Usuario'}
             </h3>
-            <p className="text-gray-600">{selectedConversation.patient_phone}</p>
+            <p className="text-sm text-gray-600">{selectedConversation.patient_phone}</p>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Estado de Urgencia</h4>
-              <div className={`inline-flex px-3 py-1 rounded-full text-sm ${getUrgencyBadge(selectedConversation.urgency_color)}`}>
-                {getUrgencyLabel(selectedConversation.urgency_color)}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Información de Contacto</h4>
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4" />
-                  <span>{selectedConversation.patient_phone}</span>
+          {/* Messages */}
+          <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+            {messages.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">No hay mensajes</p>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender === 'clinic' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs px-3 py-2 rounded-lg ${
+                      message.sender === 'clinic'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white border border-gray-300'
+                    }`}
+                  >
+                    <p className="text-sm">{message.message}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.sender === 'clinic' ? 'text-green-100' : 'text-gray-500'
+                    }`}>
+                      {formatTime(message.timestamp)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>{selectedConversation.message_count || 0} mensajes</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Última actividad: {formatTime(selectedConversation.last_message_time)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Acciones Rápidas</h4>
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Agendar Cita
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Enviar Consentimiento
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Plantillas
-                </Button>
-              </div>
-            </div>
+              ))
+            )}
           </div>
-        </div>
+
+          {/* Message Input */}
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Escriba su mensaje..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              disabled={!whatsappStatus.connected}
+            />
+            <Button
+              onClick={sendMessage}
+              disabled={!newMessage.trim() || !whatsappStatus.connected}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </Card>
       )}
 
-      {/* New Conversation Dialog */}
-      {showNewConversation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+      {/* New Chat Dialog */}
+      {showNewChat && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
             <h3 className="text-lg font-semibold mb-4">Nueva Conversación</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Número de teléfono
-                </label>
+                <Label>Número de teléfono</Label>
                 <input
                   type="text"
-                  value={newContactPhone}
-                  onChange={(e) => setNewContactPhone(e.target.value)}
-                  placeholder="+34 XXX XXX XXX"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="+34648085696"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Introduce el número con código de país (ej: +34648085696)
-                </p>
               </div>
-              
               <div className="flex space-x-3">
                 <Button
-                  onClick={() => {
-                    setShowNewConversation(false);
-                    setNewContactPhone('');
-                  }}
                   variant="outline"
+                  onClick={() => {
+                    setShowNewChat(false);
+                    setNewPhone('');
+                  }}
                   className="flex-1"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  onClick={startNewConversation}
-                  disabled={!newContactPhone.trim()}
+                  onClick={startNewChat}
+                  disabled={!newPhone.trim()}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  Iniciar Chat
+                  Iniciar
                 </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
