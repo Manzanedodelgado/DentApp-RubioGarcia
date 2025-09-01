@@ -3349,7 +3349,11 @@ const Reminders = () => {
     });
   };
 
-  // Fetch templates from backend
+  // Refresh function for contacts
+  const refreshContacts = async () => {
+    await fetchContacts();
+    toast.success("Pacientes actualizados");
+  };
   const fetchTemplates = async () => {
     try {
       const response = await axios.get(`${API}/templates`);
