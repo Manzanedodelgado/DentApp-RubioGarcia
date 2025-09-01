@@ -243,59 +243,6 @@ const AuthProvider = ({ children }) => {
 };
 
 // Mobile Menu Component
-const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="fixed top-0 left-0 w-64 h-full bg-white shadow-xl">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <img 
-                src="https://customer-assets.emergentagent.com/job_omnidesk-2/artifacts/tckikfmy_Logo%20blanco.jpeg"
-                alt="Rubio García Dental"
-                className="w-8 h-8 rounded-lg object-contain bg-blue-600 p-1"
-              />
-              <div>
-                <h1 className="text-sm font-bold text-blue-800">RUBIO GARCÍA</h1>
-                <p className="text-xs text-gray-600">DENTAL</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-        </div>
-        
-        <nav className="p-4 space-y-2">
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onTabChange(item.id);
-                  onClose();
-                }}
-                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === item.id
-                    ? "bg-blue-50 text-blue-700 border border-blue-200"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-    </div>
-  );
-};
-
 // Enhanced Conversations Component with detailed summaries
 const PendingConversations = () => {
   const [conversations, setConversations] = useState([]);
