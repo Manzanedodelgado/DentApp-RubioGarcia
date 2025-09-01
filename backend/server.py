@@ -3261,6 +3261,51 @@ async def get_conversation_messages(conversation_id: str):
         logger.error(f"Error fetching conversation messages: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching conversation messages")
 
+@api_router.get("/conversations/{conversation_id}/patient-history")
+async def get_patient_appointment_history(conversation_id: str):
+    """Get the last 5 appointments for the patient in this conversation"""
+    try:
+        # Get conversation details
+        conversation = await db.conversations.find_one({"_id": conversation_id})
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        phone_number = conversation.get("patient_phone")
+        patient_name = conversation.get("patient_name", "")
+        
+        if not phone_number:
+            return {"appointments": []}
+        
+        # Find appointments by phone number or patient name
+        query = {"$or": []}
+        if phone_number:
+            query["$or"].append({"phone": phone_number})
+        if patient_name and patient_name != "Desconocido":
+            query["$or"].append({"contact_name": {"$regex": patient_name, "$options": "i"}})
+        
+        if not query["$or"]:
+            return {"appointments": []}
+        
+        # Get last 5 appointments, sorted by date (most recent first)
+        appointments = []
+        async for appointment in db.appointments.find(query).sort("date", -1).limit(5):
+            appointments.append({
+                "id": appointment.get("id", ""),
+                "date": appointment.get("date"),
+                "title": appointment.get("title", ""),
+                "treatment": appointment.get("treatment", ""),
+                "description": appointment.get("description", ""),
+                "doctor": appointment.get("doctor", ""),
+                "status": appointment.get("status", "scheduled"),
+                "notes": appointment.get("description", "")  # Using description as notes
+            })
+        
+        return {"appointments": appointments}
+        
+    except Exception as e:
+        logger.error(f"Error fetching patient appointment history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching patient appointment history")
+
 @api_router.post("/conversations/{conversation_id}/send-message")
 async def send_message_to_conversation(conversation_id: str, message_data: dict):
     """Send a message to a specific conversation"""
