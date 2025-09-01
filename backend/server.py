@@ -2892,6 +2892,69 @@ async def voice_assistant(request: VoiceAssistantRequest):
         except Exception as e:
             logger.error(f"Error saving conversation status: {str(e)}")
         
+        # Store WhatsApp conversation and messages
+        if request.platform == "whatsapp" and request.phone_number:
+            try:
+                # Find or create conversation
+                phone_number = request.phone_number
+                conversation = await db.conversations.find_one({"patient_phone": phone_number})
+                
+                if not conversation:
+                    # Create new conversation
+                    conversation_id = str(uuid.uuid4())
+                    conversation_doc = {
+                        "_id": conversation_id,
+                        "patient_phone": phone_number,
+                        "patient_name": f"Usuario {phone_number}",
+                        "last_message": response,
+                        "last_message_time": datetime.now(timezone.utc),
+                        "urgency_color": urgency_color,
+                        "pending_response": urgency_color in ["red", "black", "yellow"],
+                        "message_count": 2,  # User message + AI response
+                        "created_at": datetime.now(timezone.utc)
+                    }
+                    await db.conversations.insert_one(conversation_doc)
+                else:
+                    conversation_id = conversation["_id"]
+                    # Update existing conversation
+                    await db.conversations.update_one(
+                        {"_id": conversation_id},
+                        {
+                            "$set": {
+                                "last_message": response,
+                                "last_message_time": datetime.now(timezone.utc),
+                                "urgency_color": urgency_color,
+                                "pending_response": urgency_color in ["red", "black", "yellow"]
+                            },
+                            "$inc": {"message_count": 2}
+                        }
+                    )
+                
+                # Save user message
+                user_message_doc = {
+                    "_id": str(uuid.uuid4()),
+                    "conversation_id": conversation_id,
+                    "message": request.message,
+                    "sender": "patient",
+                    "timestamp": datetime.now(timezone.utc),
+                    "status": "received"
+                }
+                await db.whatsapp_messages.insert_one(user_message_doc)
+                
+                # Save AI response message
+                ai_message_doc = {
+                    "_id": str(uuid.uuid4()),
+                    "conversation_id": conversation_id,
+                    "message": response,
+                    "sender": "clinic",
+                    "timestamp": datetime.now(timezone.utc),
+                    "status": "sent"
+                }
+                await db.whatsapp_messages.insert_one(ai_message_doc)
+                
+            except Exception as e:
+                logger.error(f"Error saving WhatsApp conversation: {str(e)}")
+        
         return VoiceAssistantResponse(
             response=response,
             session_id=session_id,
