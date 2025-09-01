@@ -1868,6 +1868,8 @@ const WhatsAppCommunications = () => {
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false });
   const [sortBy, setSortBy] = useState('time'); // time, name, status
   const [filterBy, setFilterBy] = useState('all'); // all, pending, urgent
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
