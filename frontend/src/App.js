@@ -3821,10 +3821,18 @@ function MainDashboard() {
 
   // Mobile Menu Component
   const MobileMenu = ({ isOpen, onClose, navigationItems, activeTab, onTabChange }) => {
+    const handleNavClick = (itemId) => {
+      // Add small delay to ensure click is registered before closing
+      onTabChange(itemId);
+      setTimeout(() => {
+        onClose();
+      }, 100);
+    };
+
     return (
-      <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+      <div className={`fixed inset-0 z-[60] ${isOpen ? 'block' : 'hidden'}`}>
         <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-        <div className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl">
+        <div className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl z-[70]">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -3850,10 +3858,7 @@ function MainDashboard() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    onTabChange(item.id);
-                    onClose();
-                  }}
+                  onClick={() => handleNavClick(item.id)}
                   className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === item.id
                       ? "bg-blue-50 text-blue-700 border border-blue-200"
