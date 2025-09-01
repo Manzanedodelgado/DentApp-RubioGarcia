@@ -4106,16 +4106,16 @@ function MainDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigationItems = [
-    { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { id: "contacts", label: "Pacientes", icon: Users },
+    { id: "dashboard", label: "Panel de Control", icon: BarChart3 },
     { id: "agenda", label: "Agenda", icon: Calendar },
+    { id: "contacts", label: "Pacientes", icon: Users },
     { id: "communications", label: "Comunicaciones", icon: MessageCircle },
     { id: "reminders", label: "Recordatorios", icon: MessageSquare },
     { id: "templates", label: "Plantillas", icon: Tag },
-    { id: "ai-training", label: "Entrenar IA", icon: Brain },
-    { id: "user-management", label: "Usuarios", icon: Shield },
     { id: "consents", label: "Consentimientos", icon: FileText },
+    { id: "ai-training", label: "Entrenar IA", icon: Brain },
     { id: "automations", label: "Automatizaciones IA", icon: Bot },
+    { id: "user-management", label: "Usuarios", icon: Shield },
     { id: "gesden", label: "Gestión Gesden", icon: Database },
     { id: "settings", label: "Configuración", icon: Settings }
   ];
