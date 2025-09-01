@@ -4099,7 +4099,7 @@ function MainDashboard() {
       case "templates":
         return <Templates />;
       case "messages":
-        return <Messages />;
+        return <UnifiedWhatsAppInterface />;
       case "ai-training":
         return <AITraining />;
       case "user-management":
