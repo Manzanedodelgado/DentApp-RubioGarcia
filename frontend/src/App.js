@@ -4093,7 +4093,7 @@ function MainDashboard() {
       case "agenda":
         return <Agenda />;
       case "communications":
-        return <Communications />;
+        return <UnifiedWhatsAppInterface />;
       case "reminders":
         return <Reminders />;
       case "templates":
