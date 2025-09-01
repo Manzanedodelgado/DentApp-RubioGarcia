@@ -3793,13 +3793,11 @@ function MainDashboard() {
       case "agenda":
         return <Agenda />;
       case "communications":
-        return <UnifiedWhatsAppInterface />;
+        return <WhatsAppCommunications />;
       case "reminders":
         return <Reminders />;
       case "templates":
         return <Templates />;
-      case "messages":
-        return <UnifiedWhatsAppInterface />;
       case "ai-training":
         return <AITraining />;
       case "user-management":
