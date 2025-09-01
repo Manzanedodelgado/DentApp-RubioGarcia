@@ -1951,6 +1951,11 @@ const WhatsAppCommunications = () => {
         
         // Refresh conversations to update last message
         fetchConversations();
+        
+        // Refresh messages after a short delay to get server updates
+        setTimeout(() => {
+          fetchMessages(selectedConversation.id);
+        }, 1000);
       }
     } catch (error) {
       console.error("Error sending message:", error);
