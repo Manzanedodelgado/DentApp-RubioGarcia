@@ -1930,6 +1930,52 @@ const WhatsAppCommunications = () => {
     }
   };
 
+  // Fetch WhatsApp QR code
+  const fetchQRCode = async () => {
+    try {
+      setLoadingQR(true);
+      const response = await axios.get(`${API}/whatsapp/qr`);
+      setQRCode(response.data.qr);
+      if (!response.data.qr) {
+        toast.error("No hay código QR disponible. Intenta reconectar.");
+      }
+    } catch (error) {
+      console.error("Error fetching QR code:", error);
+      toast.error("Error obteniendo código QR");
+      setQRCode(null);
+    } finally {
+      setLoadingQR(false);
+    }
+  };
+
+  // Reconnect WhatsApp
+  const reconnectWhatsApp = async () => {
+    try {
+      setReconnecting(true);
+      const response = await axios.post(`${API}/whatsapp/reconnect`);
+      if (response.data.success) {
+        toast.success("Reconexión iniciada. Por favor espera unos segundos...");
+        // Refresh status after a delay
+        setTimeout(() => {
+          fetchWhatsAppStatus();
+        }, 3000);
+      } else {
+        toast.error("Error al reconectar: " + (response.data.error || "Error desconocido"));
+      }
+    } catch (error) {
+      console.error("Error reconnecting WhatsApp:", error);
+      toast.error("Error al reconectar WhatsApp");
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
+  // Show QR Modal
+  const showQRCode = () => {
+    setShowQRModal(true);
+    fetchQRCode();
+  };
+
   // Send message to selected conversation
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
