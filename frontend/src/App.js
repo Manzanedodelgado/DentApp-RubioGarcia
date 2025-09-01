@@ -2186,9 +2186,53 @@ const WhatsAppCommunications = () => {
         <div className="p-4 bg-blue-600 text-white">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold">Comunicaciones</h2>
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-blue-300' : 'bg-red-300'}`}></div>
-              <span className="text-xs">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
+            <div className="flex items-center space-x-3">
+              {/* Connection Status */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${whatsappStatus.connected ? 'bg-blue-300' : 'bg-red-300'}`}></div>
+                <span className="text-xs">{whatsappStatus.connected ? 'Conectado' : 'Desconectado'}</span>
+              </div>
+              
+              {/* WhatsApp Connection Buttons */}
+              <div className="flex items-center space-x-1">
+                {!whatsappStatus.connected && (
+                  <>
+                    <Button 
+                      onClick={showQRCode}
+                      size="sm"
+                      variant="ghost"
+                      className="text-white hover:bg-blue-500 px-2 py-1 h-auto"
+                      title="Mostrar código QR para conectar"
+                    >
+                      <div className="w-4 h-4 border border-white grid grid-cols-3 gap-0.5">
+                        <div className="bg-white"></div>
+                        <div></div>
+                        <div className="bg-white"></div>
+                        <div></div>
+                        <div className="bg-white"></div>
+                        <div></div>
+                        <div className="bg-white"></div>
+                        <div></div>
+                        <div className="bg-white"></div>
+                      </div>
+                    </Button>
+                    <Button 
+                      onClick={reconnectWhatsApp}
+                      disabled={reconnecting}
+                      size="sm"
+                      variant="ghost"
+                      className="text-white hover:bg-blue-500 px-2 py-1 h-auto"
+                      title="Reconectar WhatsApp"
+                    >
+                      {reconnecting ? (
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                      ) : (
+                        <RefreshCw className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           
