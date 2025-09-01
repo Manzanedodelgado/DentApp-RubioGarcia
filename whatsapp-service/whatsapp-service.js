@@ -500,6 +500,45 @@ app.post('/send-document', async (req, res) => {
     res.json(result);
 });
 
+// Force reconnection
+app.post('/reconnect', async (req, res) => {
+    try {
+        console.log('🔄 Force reconnection requested...');
+        
+        // Close current connection if exists
+        if (sock) {
+            try {
+                sock.end();
+            } catch (e) {
+                console.log('Previous connection closed with error:', e.message);
+            }
+        }
+        
+        // Reset connection status
+        connectionStatus = 'disconnected';
+        qrCodeData = null;
+        sock = null;
+        
+        // Reinitialize WhatsApp connection
+        setTimeout(() => {
+            initWhatsApp();
+        }, 1000);
+        
+        res.json({ 
+            success: true, 
+            message: 'Reconnection initiated',
+            status: 'reconnecting'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error during reconnection:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
