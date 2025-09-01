@@ -1912,6 +1912,20 @@ const WhatsAppCommunications = () => {
     }
   };
 
+  // Fetch patient appointment history
+  const fetchPatientHistory = async (conversationId) => {
+    try {
+      setLoadingHistory(true);
+      const response = await axios.get(`${API}/conversations/${conversationId}/patient-history`);
+      setPatientHistory(response.data.appointments || []);
+    } catch (error) {
+      console.error("Error fetching patient history:", error);
+      setPatientHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   // Send message to selected conversation
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || sendingMessage) return;
