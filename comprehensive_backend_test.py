@@ -13,7 +13,7 @@ from typing import Dict, Any
 import re
 
 class ComprehensiveDentalAPITester:
-    def __init__(self, base_url="https://dental-ai-hub.preview.emergentagent.com"):
+    def __init__(self, base_url="https://dental-sync.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
