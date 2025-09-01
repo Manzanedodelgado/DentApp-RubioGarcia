@@ -3287,6 +3287,17 @@ async def get_whatsapp_qr():
         logger.error(f"Error getting WhatsApp QR: {str(e)}")
         return {"qr": None, "error": str(e)}
 
+@api_router.post("/whatsapp/reconnect")
+async def reconnect_whatsapp():
+    """Force WhatsApp reconnection"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post("http://localhost:3001/reconnect", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error reconnecting WhatsApp: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 @api_router.get("/conversations")
 async def get_conversations():
     """Get all WhatsApp conversations"""
